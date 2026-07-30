@@ -1,0 +1,40 @@
+import * as Joi from 'joi';
+
+export const envValidationSchema = Joi.object({
+  NODE_ENV: Joi.string()
+    .valid('development', 'test', 'production')
+    .default('development'),
+  PORT: Joi.number().port().default(3000),
+  API_PREFIX: Joi.string().default('api'),
+  APP_ORIGIN: Joi.string().uri().required(),
+  CORS_ORIGINS: Joi.string().required(),
+
+  DATABASE_HOST: Joi.string().required(),
+  DATABASE_PORT: Joi.number().port().default(5432),
+  DATABASE_NAME: Joi.string().required(),
+  DATABASE_USER: Joi.string().required(),
+  DATABASE_PASSWORD: Joi.string().allow('').required(),
+  DATABASE_SSL: Joi.boolean().default(false),
+
+  REDIS_HOST: Joi.string().required(),
+  REDIS_PORT: Joi.number().port().default(6379),
+  REDIS_PASSWORD: Joi.string().allow('').optional(),
+
+  JWT_ACCESS_SECRET: Joi.string().min(16).required(),
+  JWT_ACCESS_EXPIRES_IN: Joi.string().default('15m'),
+  JWT_REFRESH_SECRET: Joi.string().min(16).required(),
+  JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
+
+  COOKIE_SECURE: Joi.boolean().default(false),
+  COOKIE_DOMAIN: Joi.string().allow('').optional(),
+
+  SMTP_HOST: Joi.string().required(),
+  SMTP_PORT: Joi.number().port().default(1025),
+  SMTP_USER: Joi.string().allow('').optional(),
+  SMTP_PASSWORD: Joi.string().allow('').optional(),
+  SMTP_FROM: Joi.string().required(),
+
+  SUPABASE_URL: Joi.string().uri().allow('').optional(),
+  SUPABASE_SERVICE_ROLE_KEY: Joi.string().allow('').optional(),
+  SUPABASE_STORAGE_BUCKET: Joi.string().allow('').optional(),
+});
