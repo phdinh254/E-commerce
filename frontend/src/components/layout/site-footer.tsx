@@ -4,10 +4,10 @@ import { Container } from "@/components/layout/container";
 import { NewsletterForm } from "@/components/forms/newsletter-form";
 
 const promises = [
-  { icon: Truck, title: "Giao h?ng to?n qu?c", text: "Theo d?i r? t?ng ch?ng" },
-  { icon: RotateCcw, title: "??i tr? 30 ng?y", text: "Quy tr?nh minh b?ch" },
-  { icon: ShieldCheck, title: "Thanh to?n an to?n", text: "X?c nh?n qua PayOS" },
-  { icon: Headphones, title: "H? tr? t?n t?m", text: "Ph?n h?i trong gi? l?m vi?c" },
+  { icon: Truck, title: "Giao hàng toàn quốc", text: "Theo dõi rõ từng chặng" },
+  { icon: RotateCcw, title: "Đổi trả 30 ngày", text: "Quy trình minh bạch" },
+  { icon: ShieldCheck, title: "Thanh toán an toàn", text: "Xác nhận qua PayOS" },
+  { icon: Headphones, title: "Hỗ trợ tận tâm", text: "Phản hồi trong giờ làm việc" },
 ];
 
 export function ServicePromises() {
@@ -30,16 +30,16 @@ export function SiteFooter() {
         <div className="grid gap-10 lg:grid-cols-[1.3fr_2fr]">
           <div>
             <p className="text-xl font-semibold tracking-[-0.03em]">Cobalt Market</p>
-            <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">Ch?n l?c thi?t b? c?ng ngh? v? ?? d?ng hi?n ??i, ch? tr?ng tr?i nghi?m s? d?ng l?u d?i.</p>
-            <div className="mt-6"><p className="mb-2 text-sm font-medium">Nh?n tin s?n ph?m m?i</p><NewsletterForm /></div>
+            <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">Chọn lọc thiết bị công nghệ và đồ dùng hiện đại, chú trọng trải nghiệm sử dụng lâu dài.</p>
+            <div className="mt-6"><p className="mb-2 text-sm font-medium">Nhận tin sản phẩm mới</p><NewsletterForm /></div>
           </div>
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
-            <div><p className="text-sm font-semibold">Mua s?m</p><div className="mt-4 grid gap-3 text-sm text-muted-foreground"><Link href="/products">T?t c? s?n ph?m</Link><Link href="/search">T?m ki?m</Link><Link href="/cart">Gi? h?ng</Link></div></div>
-            <div><p className="text-sm font-semibold">T?i kho?n</p><div className="mt-4 grid gap-3 text-sm text-muted-foreground"><Link href="/login">??ng nh?p</Link><Link href="/account/orders">??n h?ng</Link><Link href="/account/addresses">S? ??a ch?</Link></div></div>
-            <div><p className="text-sm font-semibold">Th?ng tin</p><div className="mt-4 grid gap-3 text-sm text-muted-foreground"><Link href="/products">Ch?nh s?ch ??i tr?</Link><Link href="/products">Ch?nh s?ch b?o m?t</Link><Link href="/admin">Qu?n tr?</Link></div></div>
+            <div><p className="text-sm font-semibold">Mua sắm</p><div className="mt-4 grid gap-3 text-sm text-muted-foreground"><Link href="/products">Tất cả sản phẩm</Link><Link href="/search">Tìm kiếm</Link><Link href="/cart">Giỏ hàng</Link></div></div>
+            <div><p className="text-sm font-semibold">Tài khoản</p><div className="mt-4 grid gap-3 text-sm text-muted-foreground"><Link href="/login">Đăng nhập</Link><Link href="/account/orders">Đơn hàng</Link><Link href="/account/addresses">Sổ địa chỉ</Link></div></div>
+            <div><p className="text-sm font-semibold">Thông tin</p><div className="mt-4 grid gap-3 text-sm text-muted-foreground"><Link href="/products">Chính sách đổi trả</Link><Link href="/products">Chính sách bảo mật</Link><Link href="/admin">Quản trị</Link></div></div>
           </div>
         </div>
-        <div className="mt-12 flex flex-col gap-2 border-t pt-6 text-xs text-muted-foreground sm:flex-row sm:justify-between"><p>? 2026 Cobalt Market. B?n quy?n ???c b?o l?u.</p><p>Gi? hi?n th? ?? bao g?m thu? theo quy ??nh.</p></div>
+        <div className="mt-12 flex flex-col gap-2 border-t pt-6 text-xs text-muted-foreground sm:flex-row sm:justify-between"><p>© 2026 Cobalt Market. Bản quyền được bảo lưu.</p><p>Giá hiển thị đã bao gồm thuế theo quy định.</p></div>
       </Container>
     </footer>
   );

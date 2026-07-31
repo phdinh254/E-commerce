@@ -18,9 +18,9 @@ export default function ErrorBoundary({
     <main className="mx-auto w-full max-w-[1400px] px-4 py-24 sm:px-6 lg:px-8">
       <StatePanel
         kind="error"
-        title="C? l?i x?y ra"
-        description="Cobalt ch?a th? t?i n?i dung n?y. H?y ki?m tra k?t n?i r?i th? l?i."
-        actionLabel="Th? l?i"
+        title="Có lỗi xảy ra"
+        description="Cobalt chưa thể tải nội dung này. Hãy kiểm tra kết nối rồi thử lại."
+        actionLabel="Thử lại"
         onRetry={unstable_retry}
       />
     </main>

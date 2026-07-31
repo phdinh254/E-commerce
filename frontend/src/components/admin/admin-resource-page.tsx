@@ -9,6 +9,6 @@ import { cn } from "@/lib/utils";
 export async function AdminResourcePage({ resource, resourceLabel, title, description, createHref, detailBase, canDelete = true }: { resource: string; resourceLabel: string; title: string; description: string; createHref?: string; detailBase?: string; canDelete?: boolean }) {
   const rows = await commerceRepository.getAdminRows(resource);
   return (
-    <div className="mx-auto max-w-[1400px]"><PageHeader title={title} description={description} action={createHref ? <Link href={createHref} className={cn(buttonVariants({ size: "lg" }))}><Plus aria-hidden="true" />Th?m m?i</Link> : undefined} /><div className="mt-6"><AdminDataTable data={rows} resource={resourceLabel} detailBase={detailBase} canDelete={canDelete} /></div><p className="mt-3 text-xs text-muted-foreground">D? li?u ?ang d?ng adapter mock v? backend ch?a c? endpoint cho t?i nguy?n n?y.</p></div>
+    <div className="mx-auto max-w-[1400px]"><PageHeader title={title} description={description} action={createHref ? <Link href={createHref} className={cn(buttonVariants({ size: "lg" }))}><Plus aria-hidden="true" />Thêm mới</Link> : undefined} /><div className="mt-6"><AdminDataTable data={rows} resource={resourceLabel} detailBase={detailBase} canDelete={canDelete} /></div><p className="mt-3 text-xs text-muted-foreground">Dữ liệu minh họa đang được sử dụng trong khi tính năng đồng bộ với hệ thống được hoàn thiện.</p></div>
   );
 }

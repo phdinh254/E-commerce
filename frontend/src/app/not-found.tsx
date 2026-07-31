@@ -5,9 +5,9 @@ export default function NotFound() {
     <main className="mx-auto w-full max-w-[1400px] px-4 py-24 sm:px-6 lg:px-8">
       <StatePanel
         kind="notFound"
-        title="Kh?ng t?m th?y trang"
-        description="???ng d?n n?y c? th? ?? thay ??i ho?c n?i dung kh?ng c?n t?n t?i."
-        actionLabel="V? trang ch?"
+        title="Không tìm thấy trang"
+        description="Đường dẫn này có thể đã thay đổi hoặc nội dung không còn tồn tại."
+        actionLabel="Về trang chủ"
         actionHref="/"
       />
     </main>

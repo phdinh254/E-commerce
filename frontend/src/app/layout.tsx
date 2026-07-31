@@ -8,7 +8,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin",
 
 export const metadata: Metadata = {
   title: { default: "Cobalt Market", template: "%s | Cobalt Market" },
-  description: "Kh?ng gian mua s?m hi?n ??i cho thi?t b? c?ng ngh? v? phong c?ch s?ng.",
+  description: "Không gian mua sắm hiện đại cho thiết bị công nghệ và phong cách sống.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

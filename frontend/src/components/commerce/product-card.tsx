@@ -19,10 +19,10 @@ export function ProductCard({ product }: { product: Product }) {
           <Image src={product.image} alt={product.name} fill sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" className="object-cover transition-transform duration-300 group-hover:scale-[1.025]" />
         </Link>
         <div className="absolute left-3 top-3 flex flex-col items-start gap-1.5">
-          {product.isNew ? <span className="rounded-lg bg-card/95 px-2 py-1 text-[11px] font-semibold shadow-sm">M?i</span> : null}
+          {product.isNew ? <span className="rounded-lg bg-card/95 px-2 py-1 text-[11px] font-semibold shadow-sm">Mới</span> : null}
           {unavailable ? <StatusBadge status="OUT_OF_STOCK" /> : null}
         </div>
-        <Button type="button" size="icon-lg" aria-label={`Th?m ${product.name} v?o gi?`} disabled={unavailable} onClick={() => toast.success(`?? th?m ${product.name} v?o gi? h?ng.`)} className="absolute bottom-3 right-3 shadow-soft sm:translate-y-2 sm:opacity-0 sm:transition-all sm:group-hover:translate-y-0 sm:group-hover:opacity-100 sm:focus-visible:translate-y-0 sm:focus-visible:opacity-100"><ShoppingBag aria-hidden="true" /></Button>
+        <Button type="button" size="icon-lg" aria-label={`Thêm ${product.name} vào giỏ`} disabled={unavailable} onClick={() => toast.success(`Đã thêm ${product.name} vào giỏ hàng.`)} className="absolute bottom-3 right-3 shadow-soft sm:translate-y-2 sm:opacity-0 sm:transition-all sm:group-hover:translate-y-0 sm:group-hover:opacity-100 sm:focus-visible:translate-y-0 sm:focus-visible:opacity-100"><ShoppingBag aria-hidden="true" /></Button>
       </div>
       <div className="pt-4">
         <p className="text-xs font-medium text-muted-foreground">{product.brand}</p>

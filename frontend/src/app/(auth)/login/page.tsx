@@ -1,4 +1,4 @@
 import type { Metadata } from "next";
 import { AuthForm } from "@/components/forms/auth-form";
-export const metadata: Metadata = { title: "??ng nh?p" };
+export const metadata: Metadata = { title: "Đăng nhập" };
 export default function LoginPage() { return <AuthForm mode="login" />; }

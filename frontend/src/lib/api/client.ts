@@ -45,8 +45,8 @@ apiClient.interceptors.response.use(
 
 export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError<ApiError>(error)) {
-    if (!error.response) return "Kh?ng th? k?t n?i m?y ch?. Vui l?ng ki?m tra k?t n?i v? th? l?i.";
-    return error.response.data?.message ?? "Y?u c?u ch?a th? ho?n t?t.";
+    if (!error.response) return "Không thể kết nối máy chủ. Vui lòng kiểm tra kết nối và thử lại.";
+    return error.response.data?.message ?? "Yêu cầu chưa thể hoàn tất.";
   }
-  return "?? x?y ra l?i. Vui l?ng th? l?i.";
+  return "Đã xảy ra lỗi. Vui lòng thử lại.";
 }

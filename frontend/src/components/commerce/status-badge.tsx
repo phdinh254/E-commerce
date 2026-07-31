@@ -2,16 +2,16 @@ import { cn } from "@/lib/utils";
 import type { OrderStatus, ProductStockStatus } from "@/types/commerce";
 
 const labels: Record<string, string> = {
-  NEW: "??n m?i",
-  PENDING_PAYMENT: "Ch? thanh to?n",
-  PAID: "?? thanh to?n",
-  PROCESSING: "?ang x? l?",
-  SHIPPED: "?ang giao",
-  DELIVERED: "?? giao",
-  CANCELLED: "?? h?y",
-  IN_STOCK: "C?n h?ng",
-  LOW_STOCK: "S?p h?t h?ng",
-  OUT_OF_STOCK: "H?t h?ng",
+  NEW: "Đơn mới",
+  PENDING_PAYMENT: "Chờ thanh toán",
+  PAID: "Đã thanh toán",
+  PROCESSING: "Đang xử lý",
+  SHIPPED: "Đang giao",
+  DELIVERED: "Đã giao",
+  CANCELLED: "Đã hủy",
+  IN_STOCK: "Còn hàng",
+  LOW_STOCK: "Sắp hết hàng",
+  OUT_OF_STOCK: "Hết hàng",
 };
 
 export function StatusBadge({ status, className }: { status: OrderStatus | ProductStockStatus | string; className?: string }) {
