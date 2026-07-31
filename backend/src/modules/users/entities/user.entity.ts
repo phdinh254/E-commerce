@@ -11,6 +11,7 @@ import {
 import { UserRole } from '../../../common/enums/user-role.enum';
 import { UserStatus } from '../../../common/enums/user-status.enum';
 import { RefreshTokenEntity } from '../../auth/entities/refresh-token.entity';
+import { AddressEntity } from '../../addresses/entities/address.entity';
 
 @Entity({ name: 'users' })
 export class UserEntity {
@@ -52,4 +53,7 @@ export class UserEntity {
 
   @OneToMany(() => RefreshTokenEntity, (token) => token.user)
   refreshTokens: RefreshTokenEntity[];
+
+  @OneToMany(() => AddressEntity, (address) => address.user)
+  addresses: AddressEntity[];
 }

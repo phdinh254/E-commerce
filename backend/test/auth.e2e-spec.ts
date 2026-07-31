@@ -153,9 +153,13 @@ describe('Auth (e2e)', () => {
       expect(reuseRes.body.code).toBe('INVALID_REFRESH_TOKEN');
     });
 
-    it('allows only one winner when the same refresh token is used concurrently', async () => {
+    it('allows only one winner when the same refresh token is used concurrently, and the winner new token survives untouched', async () => {
       const cookie = await registerAndLogin('concurrent@example.com');
 
+      // Two genuinely concurrent requests presenting the exact same raw
+      // refresh token — this is the scenario that used to let the losing
+      // request's revokeAllForUser() collaterally wipe out the winner's
+      // brand-new token if it fired after the winner's insert.
       const [first, second] = await Promise.all([
         request(server()).post('/api/v1/auth/refresh').set('Cookie', cookie),
         request(server()).post('/api/v1/auth/refresh').set('Cookie', cookie),
@@ -164,13 +168,46 @@ describe('Auth (e2e)', () => {
       const statuses = [first.status, second.status].sort((a, b) => a - b);
       expect(statuses).toEqual([200, 401]);
 
+      const winner = first.status === 200 ? first : second;
       const loser = first.status === 401 ? first : second;
       expect(loser.body.code).toBe('INVALID_REFRESH_TOKEN');
 
+      // Exactly one successor token must exist and it must still be usable.
+      const winnerCookie = winner.headers['set-cookie'][0];
+      const usesWinnerToken = await request(server())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', winnerCookie);
+      expect(usesWinnerToken.status).toBe(200);
+      const secondGenerationCookie = usesWinnerToken.headers['set-cookie'][0];
+      expect(secondGenerationCookie).not.toEqual(winnerCookie);
+
+      // Reuse detection still works on the now-superseded winner token.
+      const reuseWinnerToken = await request(server())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', winnerCookie);
+      expect(reuseWinnerToken.status).toBe(401);
+      expect(reuseWinnerToken.body.code).toBe('INVALID_REFRESH_TOKEN');
+
+      // The original (pre-race) token remains rejected too.
       const reuseRes = await request(server())
         .post('/api/v1/auth/refresh')
         .set('Cookie', cookie);
       expect(reuseRes.status).toBe(401);
+    });
+
+    it('allows three-way concurrent refresh with the same token to still yield exactly one winner', async () => {
+      const cookie = await registerAndLogin('concurrent-triple@example.com');
+
+      const results = await Promise.all([
+        request(server()).post('/api/v1/auth/refresh').set('Cookie', cookie),
+        request(server()).post('/api/v1/auth/refresh').set('Cookie', cookie),
+        request(server()).post('/api/v1/auth/refresh').set('Cookie', cookie),
+      ]);
+
+      const successCount = results.filter((r) => r.status === 200).length;
+      const failureCount = results.filter((r) => r.status === 401).length;
+      expect(successCount).toBe(1);
+      expect(failureCount).toBe(2);
     });
 
     it('rejects refresh without a token', async () => {

@@ -110,47 +110,31 @@ export class AuthService {
 
   async refresh(rawRefreshToken: string): Promise<LoginResult> {
     const tokenHash = this.hashRefreshToken(rawRefreshToken);
-    const existing =
-      await this.refreshTokensRepository.findByTokenHash(tokenHash);
+    const {
+      rawToken,
+      tokenHash: newTokenHash,
+      expiresAt,
+    } = this.generateRefreshToken();
 
-    if (!existing || existing.revokedAt || existing.expiresAt < new Date()) {
-      if (existing && !existing.revokedAt) {
-        await this.refreshTokensRepository.revokeAllForUser(existing.userId);
-      }
+    const outcome = await this.refreshTokensRepository.rotate(tokenHash, {
+      tokenHash: newTokenHash,
+      expiresAt,
+    });
+
+    if (outcome.kind !== 'success') {
       throw new UnauthorizedException({
         code: 'INVALID_REFRESH_TOKEN',
         message: 'Phiên đăng nhập không hợp lệ',
       });
     }
 
-    const user = existing.user;
-    if (!user || user.status !== UserStatus.ACTIVE) {
-      await this.refreshTokensRepository.revoke(existing.id);
-      throw new UnauthorizedException({
-        code: 'INVALID_REFRESH_TOKEN',
-        message: 'Phiên đăng nhập không hợp lệ',
-      });
-    }
-
-    const revoked = await this.refreshTokensRepository.revoke(existing.id);
-    if (!revoked) {
-      // Another request already rotated this exact token concurrently —
-      // treat it as reuse and invalidate every session for this user.
-      await this.refreshTokensRepository.revokeAllForUser(existing.userId);
-      throw new UnauthorizedException({
-        code: 'INVALID_REFRESH_TOKEN',
-        message: 'Phiên đăng nhập không hợp lệ',
-      });
-    }
-
-    const accessToken = this.signAccessToken(user);
-    const { rawToken, expiresAt } = await this.issueRefreshToken(user.id);
+    const accessToken = this.signAccessToken(outcome.user);
 
     return {
       accessToken,
       refreshToken: rawToken,
       refreshTokenExpiresAt: expiresAt,
-      user,
+      user: outcome.user,
     };
   }
 
@@ -175,15 +159,24 @@ export class AuthService {
     });
   }
 
-  private async issueRefreshToken(
-    userId: string,
-  ): Promise<RefreshTokenIssueResult> {
+  private generateRefreshToken(): {
+    rawToken: string;
+    tokenHash: string;
+    expiresAt: Date;
+  } {
     const rawToken = randomBytes(REFRESH_TOKEN_BYTES).toString('hex');
     const tokenHash = this.hashRefreshToken(rawToken);
     const expiresAt = new Date(
       Date.now() +
         parseDurationToSeconds(this.jwtConfig.refreshExpiresIn) * 1000,
     );
+    return { rawToken, tokenHash, expiresAt };
+  }
+
+  private async issueRefreshToken(
+    userId: string,
+  ): Promise<RefreshTokenIssueResult> {
+    const { rawToken, tokenHash, expiresAt } = this.generateRefreshToken();
 
     const entity = this.refreshTokensRepository.create({
       userId,

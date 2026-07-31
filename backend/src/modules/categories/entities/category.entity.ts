@@ -48,8 +48,19 @@ export class CategoryEntity {
   @Column({ type: 'varchar', length: 255 })
   name: string;
 
-  @Index({ unique: true })
-  @Column({ type: 'varchar', length: 255, unique: true })
+  /**
+   * Uniqueness is enforced at the database level by a case-insensitive
+   * functional index on lower(slug) (see the CreateCategories +
+   * CategorySlugCaseInsensitiveUnique migrations), not by a plain column
+   * constraint here. TypeORM can't express a lower(slug) index via decorator
+   * options, so this is declared with `synchronize: false` purely as
+   * documentation — schema:log/synchronize must not try to manage it.
+   */
+  @Index('UQ_categories_slug_lower', {
+    unique: true,
+    synchronize: false,
+  } as unknown as { synchronize: false })
+  @Column({ type: 'varchar', length: 255 })
   slug: string;
 
   @Column({ type: 'varchar', length: 1000, nullable: true })

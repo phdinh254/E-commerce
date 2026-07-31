@@ -89,7 +89,11 @@ Connection pool và timeout cấu hình qua biến môi trường (validate bằ
 Joi, xem `.env.example`): `DB_POOL_MAX` (mặc định 10), `DB_CONNECTION_TIMEOUT_MS`
 (mặc định 5000), `DB_IDLE_TIMEOUT_MS` (mặc định 10000). Xem thêm
 `docs/database-design.md` để biết chi tiết thiết kế schema User/Auth/Category
-(bảng `categories` — cây danh mục self-referencing qua `parent_id`).
+(bảng `categories` — cây danh mục self-referencing qua `parent_id`, unique
+slug không phân biệt hoa/thường) và Address (bảng `addresses` — nhiều địa
+chỉ/user, tối đa một địa chỉ mặc định đang hoạt động qua partial unique
+index), cũng như thiết kế transaction + row lock cho refresh token
+rotation.
 
 ```bash
 cd backend

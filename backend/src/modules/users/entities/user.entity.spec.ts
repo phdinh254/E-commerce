@@ -7,6 +7,7 @@ describe('UserEntity metadata', () => {
   const table = storage.tables.find((t) => t.target === UserEntity);
   const columns = storage.columns.filter((c) => c.target === UserEntity);
   const indices = storage.indices.filter((i) => i.target === UserEntity);
+  const relations = storage.relations.filter((r) => r.target === UserEntity);
 
   function column(propertyName: string) {
     const found = columns.find((c) => c.propertyName === propertyName);
@@ -50,6 +51,15 @@ describe('UserEntity metadata', () => {
     expect(column('updatedAt').options.type).toBe('timestamptz');
     expect(column('deletedAt').options.type).toBe('timestamptz');
     expect(column('deletedAt').options.nullable).toBe(true);
+  });
+
+  it('does not eager-load addresses (would otherwise be fetched on every user query)', () => {
+    const addressesRelation = relations.find(
+      (r) => r.propertyName === 'addresses',
+    );
+    expect(addressesRelation).toBeDefined();
+    expect(addressesRelation?.options.eager).toBeFalsy();
+    expect(addressesRelation?.options.cascade).toBeFalsy();
   });
 });
 

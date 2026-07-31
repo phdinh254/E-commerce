@@ -1,9 +1,10 @@
-# Database Design — Core Entities (User, Auth, Category)
+# Database Design — Core Entities (User, Auth, Category, Address)
 
 Tài liệu này mô tả business requirements và thiết kế database thực tế của
 các module **User**, **Auth** (`backend/src/modules/users`,
-`backend/src/modules/auth`) và **Category**
-(`backend/src/modules/categories`) trong backend. Nội dung được tái dựng từ
+`backend/src/modules/auth`), **Category**
+(`backend/src/modules/categories`) và **Address**
+(`backend/src/modules/addresses`) trong backend. Nội dung được tái dựng từ
 mã nguồn, migration và test hiện có — không phải từ giáo trình. Chỗ nào
 không suy ra được từ code/test sẽ được ghi rõ là **chưa xác định**.
 
@@ -16,14 +17,12 @@ Các phần đã triển khai và tài liệu hoá trong file này chịu trách
 - Quản lý refresh token dạng session xoay vòng (rotation) với phát hiện
   tái sử dụng (reuse detection), lưu ở bảng `refresh_tokens`.
 - Tổ chức sản phẩm theo cây danh mục nhiều cấp (`categories`) — xem mục 14.
+- Lưu địa chỉ giao hàng của người dùng (`addresses`) — xem mục 23.
 
 Ngoài phạm vi (thuộc các bài/module khác, **chưa triển khai**, không đụng
-tới ở đây): Address (**lưu ý:** chưa có migration/module Address nào trong
-repository tại thời điểm viết tài liệu này, dù có thể được đề cập là "đã xử
-lý" ở nơi khác — xem mục J của báo cáo Bài 23), Brand, Product,
-ProductImage, ProductVariant, Inventory, Coupon, Cart, Order, Payment,
-Shipment, Review, Search, Elasticsearch, Supabase Storage, PayOS,
-CategoryTranslation, Locale.
+tới ở đây): Brand, Product, ProductImage, ProductVariant, Inventory, Coupon,
+Cart, Order, Payment, Shipment, Review, Search, Elasticsearch, Supabase
+Storage, PayOS, CategoryTranslation, Locale.
 
 ## 2. Actor và quyền hạn
 
@@ -86,39 +85,83 @@ Mỗi lần đăng nhập/refresh thành công tạo **một session mới** (m�
    tồn tại phía client (cookie). Server chỉ lưu
    `sha256(rawToken)` (`tokenHash`, cột `token_hash`, unique).
    **Không lưu refresh token thô trong database.**
-2. `POST /auth/refresh`:
-   - Tìm session theo `tokenHash` (kèm `relations: { user: true }`).
-   - Nếu không tồn tại, đã `revokedAt`, hoặc đã hết hạn (`expiresAt < now`):
-     - Nếu session tồn tại và **chưa** bị revoke tại thời điểm đọc (tức là
-       hết hạn nhưng chưa ai revoke) → coi là dấu hiệu bất thường, revoke
-       **toàn bộ session còn hoạt động của user đó** (`revokeAllForUser`).
-     - Trả `401 INVALID_REFRESH_TOKEN`.
-   - Nếu user liên kết không còn `ACTIVE` → revoke session này, trả `401`.
-   - Ngược lại: revoke session hiện tại một cách **có điều kiện**
-     (`UPDATE ... WHERE id = :id AND revoked_at IS NULL`), dùng số dòng bị
-     ảnh hưởng (`UpdateResult.affected`) làm bằng chứng "mình là request đầu
-     tiên revoke session này":
-     - Nếu `affected === 0` (một request khác đã revoke trước, tức là
-       cùng một refresh token bị dùng đồng thời) → coi là **reuse**, revoke
-       toàn bộ session của user, trả `401 INVALID_REFRESH_TOKEN`.
-     - Nếu `affected > 0` → phát access token mới + refresh token mới
-       (session mới), trả về `200`.
+2. `POST /auth/refresh` gọi `RefreshTokensRepository.rotate(tokenHash, newToken)`
+   (`backend/src/modules/auth/refresh-tokens.repository.ts`), toàn bộ chạy
+   trong **một transaction** (`repository.manager.transaction(...)`):
+   - `SELECT ... FOR UPDATE` (`lock: { mode: 'pessimistic_write' }`) khoá
+     đúng dòng `refresh_tokens` theo `token_hash`. Hai request đồng thời
+     trình cùng một token thô sẽ tuần tự hoá trên chính dòng đó: request
+     thứ hai bị **chặn (block)** ở bước `SELECT ... FOR UPDATE` cho đến khi
+     transaction của request thứ nhất `COMMIT` hoặc `ROLLBACK`.
+   - Không tìm thấy token → `{ kind: 'invalid' }`, trả `401`.
+   - Token đã `revokedAt` (dù do rotate hợp lệ trước đó, hay do request kia
+     vừa thắng cuộc đua và đã commit) → `{ kind: 'invalid' }`, trả `401`,
+     **không** gọi `revokeAllForUser`. Xem mục "Race condition đã sửa" bên
+     dưới để biết lý do đây là điểm khác biệt cốt lõi so với thiết kế cũ.
+   - Token hết hạn nhưng chưa revoke → revoke toàn bộ session còn hoạt
+     động của user (`revokeAllForUser`, cùng transaction), trả về
+     `{ kind: 'expired' }` → `401`. Đây là nhánh không liên quan tới race
+     condition (token thực sự đã hết hạn), giữ nguyên hành vi cũ.
+   - User không còn `ACTIVE` → revoke session này, trả `{ kind: 'inactive_user' }`
+     → `401`.
+   - Hợp lệ: revoke session hiện tại **và** insert session mới trong cùng
+     transaction, trả `{ kind: 'success', user }` → `200` với access token
+     và refresh token mới.
 
-Cơ chế trên đảm bảo **rotate là nguyên tử ở mức row**: hai request đồng
-thời dùng chung một refresh token thô chỉ có **đúng một** request thắng
-(`200`), request còn lại nhận `401` — dựa vào tính nguyên tử của một câu
-UPDATE điều kiện trong PostgreSQL (không cần transaction/khoá tường minh).
-Được kiểm chứng bằng test e2e
-`allows only one winner when the same refresh token is used concurrently`
-(`backend/test/auth.e2e-spec.ts`).
+### Race condition đã sửa
 
-**Giới hạn còn lại (chưa xử lý, xem mục 11):** giữa bước "revoke session
-thua cuộc" và bước "request thắng cuộc tạo dòng session mới", nếu request
-thua thực thi `revokeAllForUser` *trước khi* dòng mới của request thắng
-được insert xong, dòng mới đó sẽ không bị cuốn vào revoke-all. Cửa sổ race
-này rất hẹp (vài mili-giây, cùng một request handler) và không phá vỡ bất
-biến chính (không có hai lần rotate thành công từ một token), nhưng chưa
-được loại bỏ hoàn toàn bằng transaction/khoá tường minh.
+**Thiết kế cũ** (trước đợt audit này): đọc token, kiểm tra, sau đó
+`UPDATE ... WHERE id = :id AND revoked_at IS NULL` có điều kiện, dùng
+`UpdateResult.affected` để biết mình có "thắng" hay không; nếu thua
+(`affected === 0`) thì gọi `revokeAllForUser(userId)` **ngoài mọi
+lock/transaction**. Vấn đề: nếu request thua gọi `revokeAllForUser` *sau
+khi* request thắng đã `INSERT` xong session mới, `revokeAllForUser` (một
+`UPDATE ... WHERE user_id = X AND revoked_at IS NULL` không giới hạn theo
+token) sẽ **vô tình thu hồi luôn session mới hợp lệ** vừa được request
+thắng tạo ra — client "thắng" cuộc đua vẫn coi như bị đăng xuất ngay sau
+đó. Bằng chứng: trước khi sửa, test đồng thời gửi 2 request refresh cùng
+token có thể khiến **cả 2** cùng nhận `200` (không có bất kỳ khoá nào ép
+buộc tuần tự các bước validate → revoke → insert), hoặc khiến response
+`200` hợp lệ của request thắng bị vô hiệu hoá ngay sau đó bởi request thua.
+
+**Thiết kế mới**: dùng `SELECT ... FOR UPDATE` để khoá đúng một dòng
+`refresh_tokens`, toàn bộ validate + revoke + insert nằm trong **cùng một
+transaction** giữ khoá đó đến khi commit. Request thứ hai chỉ có thể đọc
+lại dòng này **sau khi** request thứ nhất đã commit — tại thời điểm đó nó
+chắc chắn thấy `revoked_at` đã được set, và phản hồi đơn giản là "invalid"
+mà **không đụng đến bất kỳ dòng nào khác** (không có `revokeAllForUser`
+tràn lan trong nhánh này). Điều này loại bỏ hoàn toàn khả năng request
+thua ghi đè lên session hợp lệ mà request thắng vừa tạo.
+
+Kiểm chứng bằng test đồng thời thật (không phải tuần tự giả lập):
+- `backend/test/auth.e2e-spec.ts` — `allows only one winner when the same
+  refresh token is used concurrently, and the winner new token survives
+  untouched`: gửi 2 request `POST /auth/refresh` song song
+  (`Promise.all`) cùng một cookie, xác nhận đúng 1 request `200`, 1 request
+  `401`; sau đó dùng cookie mới của request thắng — xác nhận nó **vẫn còn
+  hoạt động** (đúng một lần), rồi dùng lại nó lần nữa thì bị từ chối (reuse
+  detection vẫn hoạt động cho thế hệ token kế tiếp).
+- `allows three-way concurrent refresh with the same token to still yield
+  exactly one winner`: 3 request song song, xác nhận đúng 1 `200` và 2
+  `401`.
+- Xác minh thủ công bổ sung: 2 tiến trình `curl` chạy song song thật sự ở
+  cấp hệ điều hành (không phải trong cùng process Node/Jest) nhắm vào
+  server `pnpm start:dev` đang chạy thật — kết quả giống hệt test tự động
+  (đúng 1 `200`, token mới dùng được đúng 1 lần, logout vẫn hoạt động sau
+  đó).
+
+**Không thay đổi**: HTTP status, `code: INVALID_REFRESH_TOKEN`, cấu trúc
+response, cookie, hay bất kỳ route nào. Đây thuần tuý là thay đổi cơ chế
+nội bộ của tầng repository.
+
+**Giới hạn còn lại**: `SELECT ... FOR UPDATE` chỉ khoá dòng của token
+*đang được trình ra*. Nó không tạo ra deadlock (chỉ một dòng, một loại
+khoá, không có chu trình chờ chéo) và không cần isolation level cao hơn
+mặc định (`READ COMMITTED`) vì tính đúng đắn ở đây đến từ khoá dòng tường
+minh, không phải từ isolation level. Cơ chế phát hiện chu trình reuse dài
+hạn (token cũ bị dùng lại sau một khoảng thời gian dài, không liên quan
+race condition) không thuộc phạm vi sửa lỗi lần này — xem mục "Lỗ hổng còn
+lại" trong báo cáo audit tương ứng.
 
 ## 6. Đăng xuất (`POST /auth/logout`)
 
@@ -327,22 +370,48 @@ Quan hệ:
 ## 16. Slug
 
 - `slug` bắt buộc (NOT NULL), kiểu `varchar(255)`, không dùng kiểu số.
-- Unique **toàn bộ bảng, kể cả Category đã soft delete** - dùng unique
-  constraint thường (`UQ_categories_slug`), không dùng partial unique index
-  kiểu `WHERE deleted_at IS NULL`. Lý do: tránh một URL/slug cũ vô tình trỏ
-  sang Category mới sau khi Category cũ bị xóa mềm, và tránh mơ hồ khi khôi
-  phục Category đã xóa. Đã kiểm chứng bằng test "soft delete keeps the row
-  in the database and reserves its slug".
-- Chỉ một cơ chế duy nhất đảm bảo unique: unique constraint thường
-  (case-sensitive) ở tầng database. Không dùng đồng thời `citext`,
-  functional index `lower(slug)`, và chuẩn hóa application layer cùng lúc -
-  tránh nhiều cơ chế trùng trách nhiệm.
-- Chuẩn hóa/trim slug ở application layer chưa được triển khai trong lượt
-  này vì chưa có Category service/CRUD. Hiện tại DB chỉ đảm bảo unique theo
-  giá trị byte chính xác (case-sensitive: "Ao-Thun" và "ao-thun" được coi
-  là khác nhau). Khi CRUD Category được xây dựng, service đó bắt buộc phải
-  trim + lowercase slug trước khi lưu để tránh trùng lặp về mặt hiển thị và
-  để giữ nhất quán với cách `email` được chuẩn hóa ở Auth.
+- Unique **toàn bộ bảng, kể cả Category đã soft delete** — không dùng
+  partial unique index kiểu `WHERE deleted_at IS NULL`. Lý do: tránh một
+  URL/slug cũ vô tình trỏ sang Category mới sau khi Category cũ bị xóa
+  mềm, và tránh mơ hồ khi khôi phục Category đã xóa. Đã kiểm chứng bằng
+  test `soft delete keeps the row in the database and reserves its slug`
+  và `does not allow reusing a soft-deleted slug even with different
+  casing`.
+- **Unique không phân biệt hoa/thường (đã sửa).** Thiết kế ban đầu dùng
+  unique constraint case-sensitive thông thường (`UQ_categories_slug`),
+  được xác minh trực tiếp trên PostgreSQL là **cho phép `dien-tu` và
+  `Dien-Tu` cùng tồn tại** — vì Category chưa có CRUD/service nào chuẩn
+  hóa slug trước khi ghi, database không thể dựa vào "service tương lai
+  sẽ lowercase" để đảm bảo tính duy nhất của URL. Migration
+  `CategorySlugCaseInsensitiveUnique1738300000000` thay
+  `UQ_categories_slug` (unique constraint trên `slug`) bằng
+  `UQ_categories_slug_lower` — **unique index trên `lower(slug)`** — giữ
+  nguyên quyết định "global unique kể cả sau soft delete" (không thêm
+  `WHERE deleted_at IS NULL`).
+- Chỉ một cơ chế duy nhất đảm bảo unique: functional unique index
+  `lower(slug)` ở tầng database. Không dùng đồng thời `citext` (tránh
+  thêm phụ thuộc kiểu dữ liệu mới khi một unique index thường đã đủ), và
+  không dựa vào chuẩn hóa application layer làm cơ chế duy nhất (vì chưa
+  có service nào tồn tại để làm việc đó) — tránh nhiều cơ chế trùng trách
+  nhiệm.
+- `CategoryEntity.slug` không còn khai báo `unique: true` ở cấp cột (điều
+  đó chỉ tạo được unique case-sensitive); index case-insensitive được khai
+  báo với `synchronize: false` thuần làm tài liệu, vì TypeORM không thể
+  biểu diễn index trên biểu thức `lower(slug)` qua decorator — xem chú
+  thích trong `category.entity.ts` và mục "Kiểm tra schema drift" bên
+  dưới.
+- Đã kiểm chứng trực tiếp trên PostgreSQL (không chỉ dựa vào migration
+  chạy thành công):
+  ```sql
+  INSERT INTO categories (name, slug) VALUES ('Điện tử', 'dien-tu-verify');
+  INSERT INTO categories (name, slug) VALUES ('Điện tử 2', 'Dien-Tu-Verify');
+  -- ERROR: duplicate key value violates unique constraint "UQ_categories_slug_lower"
+  ```
+- Chuẩn hóa/trim slug ở application layer **vẫn chưa được triển khai**
+  trong lượt này vì chưa có Category service/CRUD — đây là trách nhiệm
+  của CRUD tương lai, không phải của migration này. Migration này chỉ đảm
+  bảo database từ chối trùng lặp không phân biệt hoa/thường ngay cả khi
+  không có service nào chuẩn hóa input.
 
 ## 17. displayOrder và isActive
 
@@ -450,3 +519,180 @@ erDiagram
 Sơ đồ này chỉ thể hiện self-relation của `categories` - không có bảng
 `products`, `locales`, hay `category_translations` vì các bảng đó chưa tồn
 tại trong repository.
+
+## 23. Kiểm tra schema drift (`schema:log`)
+
+`migration:show` chỉ xác nhận migration đã chạy hay chưa, **không** xác
+nhận entity metadata khớp với schema thật. Lượt audit này chạy thêm
+`pnpm typeorm schema:log` (so sánh entity metadata với schema PostgreSQL
+thật) trên database test đã migrate đầy đủ.
+
+**Phát hiện ban đầu**: `SnakeCaseNamingStrategy`
+(`src/database/naming-strategy.ts`) chỉ override `tableName`,
+`columnName`, `relationName`, `joinColumnName`, `joinTableName`,
+`joinTableColumnName` — **không** override `foreignKeyName`,
+`uniqueConstraintName`, `indexName`. Với các cột/relation không được đặt
+tên tường minh trong entity (`@Column({ unique: true })` không kèm tên,
+`@Index()` không tham số, `@ManyToOne` không có cách đặt tên FK qua
+decorator), TypeORM tự sinh tên dạng hash (`FK_<hash>`, `UQ_<hash>`,
+`IDX_<hash>`) — không khớp với tên tường minh mà mọi migration trong dự
+án này luôn đặt (`FK_<table>_<col>`, `UQ_<table>_<col>`,
+`IDX_<table>_<col>`). `schema:log` ban đầu báo muốn `DROP`/`ADD` lại toàn
+bộ FK của `refresh_tokens`, `addresses`, `categories`, và index/unique
+của `refresh_tokens.user_id`, `addresses.user_id` chỉ để đổi tên.
+
+**Đã sửa (thuộc phạm vi Address/Category)**: thêm `foreignKeyName`,
+`uniqueConstraintName`, `indexName` vào `SnakeCaseNamingStrategy`, sinh
+đúng quy ước `<PREFIX>_<table>_<col1>_<col2>` đã dùng trong mọi migration.
+**Không cần migration mới** cho thay đổi này — không có schema vật lý nào
+đổi, chỉ có cách TypeORM *dự đoán tên* để so sánh là thay đổi, để khớp với
+tên đã tồn tại thật trong database. Index/constraint được đặt tên tường
+minh qua decorator (`UQ_categories_slug_lower`,
+`IDX_categories_parent_id_display_order`,
+`UQ_addresses_user_default_active`, các `@Check()` có tên) không đi qua
+naming strategy nên không bị ảnh hưởng.
+
+**Còn lại sau khi sửa (đã xác nhận bằng `schema:log`, KHÔNG thuộc phạm vi
+Address/Category, không sửa trong lượt này)**: `UserEntity.email` và
+`RefreshTokenEntity.tokenHash` mỗi cột có **cả hai** decorator
+`@Index({ unique: true })` và `@Column({ unique: true })`. Cột-level
+`unique: true` đi qua `uniqueConstraintName()` (nay khớp đúng
+`UQ_users_email`/`UQ_refresh_tokens_token_hash`), nhưng decorator
+`@Index({ unique: true })` không tên đi qua `indexName()` (nay sinh
+`IDX_users_email`/`IDX_refresh_tokens_token_hash`) — hai metadata cho
+cùng một cột, chỉ có MỘT index tồn tại thật trong DB. Đây là kiểu khai báo
+kép đã có từ trước (thuộc Auth, tạo ở lượt audit trước), không phải do
+thay đổi trong lượt này. `schema:log` sau khi sửa naming strategy còn lại
+đúng 6 câu lệnh, toàn bộ liên quan tới 2 cột này — **không còn** câu lệnh
+nào liên quan `addresses` hay `categories`. Không sửa trong lượt này vì
+nằm ngoài phạm vi khai báo (chỉ Address/Category); ghi nhận là lỗ hổng đã
+biết, chưa xử lý.
+
+Kết quả `schema:log` cuối cùng đã kiểm chứng (database test cô lập, sau
+khi fresh-migrate và sau khi revert+migrate lại migration Address và
+Category):
+
+```
+DROP INDEX "public"."UQ_refresh_tokens_token_hash";
+DROP INDEX "public"."UQ_users_email";
+ALTER TABLE "refresh_tokens" ADD CONSTRAINT "UQ_refresh_tokens_token_hash" UNIQUE ("token_hash");
+ALTER TABLE "users" ADD CONSTRAINT "UQ_users_email" UNIQUE ("email");
+CREATE UNIQUE INDEX "IDX_refresh_tokens_token_hash" ON "refresh_tokens" ("token_hash");
+CREATE UNIQUE INDEX "IDX_users_email" ON "users" ("email");
+```
+
+## 24. Address — business requirements
+
+Mỗi User có thể lưu nhiều địa chỉ giao hàng; đúng một địa chỉ trong số đó
+có thể được đánh dấu mặc định tại một thời điểm. Yêu cầu đã xác nhận (từ
+prompt triển khai, ưu tiên cao hơn workbook nếu có khác biệt):
+
+- Một User có thể có nhiều Address; mỗi Address thuộc đúng một User.
+- Address có tên người nhận, số điện thoại, tỉnh/thành, quận/huyện,
+  phường/xã, địa chỉ chi tiết (số nhà/đường) — hỗ trợ Unicode tiếng Việt.
+- `isDefault` mặc định `false`; **tối đa một** Address đang hoạt động
+  (chưa soft-delete) của mỗi User được phép là mặc định.
+- Address dùng soft delete (`deletedAt`).
+
+**Chưa thuộc phạm vi lượt này** (chỉ database foundation, không CRUD):
+
+- Address Controller/Service/DTO — không tồn tại, không tạo trong lượt này.
+- Transaction "đổi địa chỉ mặc định" (revoke địa chỉ mặc định cũ + set địa
+  chỉ mới trong 1 transaction) — chưa có service nào để cần transaction
+  này; sẽ cần khi CRUD được xây dựng, do phải đảm bảo tại mọi thời điểm
+  giữa hai lệnh UPDATE không có trạng thái "0 hoặc 2 địa chỉ mặc định"
+  thoáng qua (constraint DB chỉ chặn *kết quả cuối cùng* vi phạm, không
+  ngăn được race giữa hai request đổi mặc định đồng thời cho cùng user —
+  nếu cần, phải dùng `SELECT ... FOR UPDATE` trên các dòng address của
+  user đó, tương tự cách đã sửa cho refresh token rotation).
+- Authorization ownership (chỉ chính User đó hoặc Admin được sửa/xóa
+  Address của mình) — chưa có API nên chưa có gì để authorize.
+
+## 25. Thiết kế bảng Address
+
+| Cột | Kiểu dữ liệu | Nullable | Default | Constraint | Ý nghĩa |
+| --- | --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | `gen_random_uuid()` | PK `PK_addresses_id` | Khoá chính, cùng chiến lược UUID với `users` |
+| `user_id` | uuid | NOT NULL | — | FK `FK_addresses_user_id` (`ON DELETE RESTRICT`) | User sở hữu địa chỉ |
+| `recipient_name` | varchar(255) | NOT NULL | — | — | Tên người nhận |
+| `phone_number` | varchar(20) | NOT NULL | — | — | Số điện thoại liên hệ |
+| `province` | varchar(255) | NOT NULL | — | — | Tỉnh/Thành phố |
+| `district` | varchar(255) | NOT NULL | — | — | Quận/Huyện |
+| `ward` | varchar(255) | NOT NULL | — | — | Phường/Xã |
+| `street_address` | varchar(255) | NOT NULL | — | — | Số nhà, tên đường, chi tiết còn lại |
+| `is_default` | boolean | NOT NULL | `false` | Ràng buộc bởi partial unique index (xem dưới) | Địa chỉ mặc định |
+| `created_at` | timestamptz | NOT NULL | `now()` | — | Thời điểm tạo |
+| `updated_at` | timestamptz | NOT NULL | `now()` | — | Thời điểm cập nhật |
+| `deleted_at` | timestamptz | NULL | — | — | Soft delete |
+
+Index: `IDX_addresses_user_id` (liệt kê địa chỉ theo user),
+`UQ_addresses_user_default_active` (partial unique, xem mục 26).
+
+## 26. Foreign key và partial unique index
+
+- **`FK_addresses_user_id`: `ON DELETE RESTRICT`** (khác với
+  `refresh_tokens.user_id` dùng `ON DELETE CASCADE`). Lý do khác nhau giữa
+  hai bảng cùng tham chiếu `users`: refresh token là artifact bảo mật tạm
+  thời, không còn giá trị độc lập một khi user không còn tồn tại, nên
+  cascade là hợp lý; địa chỉ giao hàng có thể còn giá trị tham chiếu lịch
+  sử (ví dụ Order trong tương lai), và User trong hệ thống này **chỉ**
+  từng bị soft-delete (không có API hard-delete User nào tồn tại) — dùng
+  `RESTRICT` là lựa chọn an toàn, tránh việc một hard-delete User (nếu
+  sau này được thêm) âm thầm xóa sạch lịch sử địa chỉ mà không có quyết
+  định nghiệp vụ rõ ràng.
+- **`UQ_addresses_user_default_active`**: partial unique index
+  `ON addresses (user_id) WHERE is_default = true AND deleted_at IS NULL`.
+  Đảm bảo **tại tầng database**: mỗi user tại một thời điểm có tối đa một
+  Address đang hoạt động (chưa xóa mềm) được đánh dấu mặc định. Dùng
+  partial index thay vì unique constraint thường trên `user_id` vì một
+  user **phải** được phép có nhiều Address không mặc định — yêu cầu này
+  được nêu rõ trong đề bài. Soft-delete Address mặc định hiện tại sẽ giải
+  phóng "chỗ trống" để tạo Address mặc định mới (đã kiểm chứng bằng test
+  `allows a new default address after the old default is soft-deleted`).
+- Quan hệ `AddressEntity.user` không `eager`, không `cascade` — không tải
+  kèm User khi query Address, và ngược lại `UserEntity.addresses` (`OneToMany`)
+  cũng không `eager`, không `cascade` — địa chỉ không tự động xuất hiện
+  khi query User.
+
+## 27. Invariant đã kiểm chứng trên PostgreSQL thật
+
+Toàn bộ chạy trên database test cô lập
+(`backend/test/address-schema.e2e-spec.ts`), không dùng SQLite hay mock:
+
+| Invariant | Kết quả |
+| --- | --- |
+| Một User có nhiều Address | Xác nhận |
+| Nhiều Address không mặc định cho cùng User | Xác nhận |
+| Một Address mặc định cho một User | Xác nhận |
+| Không thể có 2 Address mặc định đang hoạt động cho cùng User | Xác nhận — insert thứ hai bị partial unique index từ chối |
+| Hai User khác nhau đều có thể có Address mặc định riêng | Xác nhận |
+| Soft-delete Address mặc định cũ → tạo được Address mặc định mới | Xác nhận |
+| `user_id` không tồn tại bị từ chối | Xác nhận — vi phạm FK |
+| Soft delete không xóa vật lý | Xác nhận — dòng còn trong DB, `deleted_at` khác null |
+| Unicode tiếng Việt lưu/đọc đúng | Xác nhận |
+| `isDefault` mặc định `false` | Xác nhận |
+
+## 28. Sơ đồ ER — Address (hiện trạng thật)
+
+```mermaid
+erDiagram
+    users ||--o{ addresses : "has"
+
+    addresses {
+        uuid id PK
+        uuid user_id FK "ON DELETE RESTRICT"
+        varchar recipient_name
+        varchar phone_number
+        varchar province
+        varchar district
+        varchar ward
+        varchar street_address
+        boolean is_default "default false, at most one active default per user"
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at "nullable, soft delete"
+    }
+```
+
+Sơ đồ này chỉ thể hiện quan hệ `users` – `addresses`; không có `orders`
+hay bất kỳ bảng nào khác vì chúng chưa tồn tại trong repository.

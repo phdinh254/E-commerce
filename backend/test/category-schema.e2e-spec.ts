@@ -92,6 +92,26 @@ describe('Category schema (PostgreSQL integration)', () => {
     ).rejects.toThrow();
   });
 
+  it('rejects slugs that only differ by case (dien-tu vs Dien-Tu)', async () => {
+    await repo().save(repo().create({ name: 'Điện tử', slug: 'dien-tu' }));
+
+    await expect(
+      repo().save(repo().create({ name: 'Điện tử 2', slug: 'Dien-Tu' })),
+    ).rejects.toThrow();
+  });
+
+  it('still allows genuinely different slugs to be created', async () => {
+    const a = await repo().save(
+      repo().create({ name: 'Điện tử', slug: 'dien-tu-unique' }),
+    );
+    const b = await repo().save(
+      repo().create({ name: 'Thời trang', slug: 'thoi-trang-unique' }),
+    );
+
+    expect(a.slug).toBe('dien-tu-unique');
+    expect(b.slug).toBe('thoi-trang-unique');
+  });
+
   it('soft delete keeps the row in the database and reserves its slug', async () => {
     const category = await repo().save(
       repo().create({ name: 'Xoá mềm', slug: 'soft-delete-slug' }),
@@ -115,6 +135,23 @@ describe('Category schema (PostgreSQL integration)', () => {
     await expect(
       repo().save(
         repo().create({ name: 'Xoá mềm khác', slug: 'soft-delete-slug' }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('does not allow reusing a soft-deleted slug even with different casing', async () => {
+    const category = await repo().save(
+      repo().create({ name: 'Xoá mềm', slug: 'soft-delete-case-slug' }),
+    );
+
+    await repo().softDelete(category.id);
+
+    await expect(
+      repo().save(
+        repo().create({
+          name: 'Xoá mềm khác',
+          slug: 'Soft-Delete-Case-Slug',
+        }),
       ),
     ).rejects.toThrow();
   });

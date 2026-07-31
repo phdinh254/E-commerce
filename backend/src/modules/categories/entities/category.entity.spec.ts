@@ -43,17 +43,26 @@ describe('CategoryEntity metadata', () => {
     expect(nameColumn.options.nullable).toBeFalsy();
   });
 
-  it('enforces a unique, required slug', () => {
+  it('requires a slug but does not rely on a plain column-level unique flag', () => {
     const slugColumn = column('slug');
-    expect(slugColumn.options.unique).toBe(true);
     expect(slugColumn.options.nullable).toBeFalsy();
+    // Uniqueness is enforced by the case-insensitive lower(slug) functional
+    // index created in migrations, not by a plain unique column constraint
+    // (that would only be case-sensitive — see the
+    // CategorySlugCaseInsensitiveUnique migration).
+    expect(slugColumn.options.unique).toBeFalsy();
   });
 
-  it('has a unique index backing slug lookups', () => {
+  it('documents the case-insensitive slug unique index without letting TypeORM manage it', () => {
     const slugIndex = indices.find(
       (i) => i.columns?.length === 1 && i.columns[0] === 'slug',
     );
+    expect(slugIndex?.name).toBe('UQ_categories_slug_lower');
     expect(slugIndex?.unique).toBe(true);
+    // synchronize:false: TypeORM cannot express a lower(slug) expression
+    // index via decorator options, so schema:log/synchronize must ignore
+    // this entry entirely instead of reporting false drift against it.
+    expect(slugIndex?.synchronize).toBe(false);
   });
 
   it('has optional description and imageUrl', () => {

@@ -1,0 +1,36 @@
+"use client";
+
+import { useEffect } from "react";
+
+export default function GlobalError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+
+  return (
+    <html lang="vi">
+      <body className="grid min-h-svh place-items-center bg-background px-4 text-foreground">
+        <main className="max-w-md text-center">
+          <p className="text-sm font-semibold text-primary">COBALT MARKET</p>
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight">H? th?ng ?ang gi?n ?o?n</h1>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            Ch?ng t?i ch?a th? ho?n t?t y?u c?u. Vui l?ng th? t?i l?i trang.
+          </p>
+          <button
+            type="button"
+            onClick={reset}
+            className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            T?i l?i
+          </button>
+        </main>
+      </body>
+    </html>
+  );
+}
