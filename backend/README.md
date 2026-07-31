@@ -153,6 +153,26 @@ Sau khi backend chạy:
 - Swagger UI: `http://localhost:3000/docs`
 - OpenAPI JSON: `http://localhost:3000/docs-json`
 
+## Logging
+
+Backend dùng Pino (`nestjs-pino`) làm structured logger, thay cho logger
+mặc định của NestJS.
+
+- Development (`NODE_ENV=development`): log dạng pretty-print, dễ đọc trên
+  terminal (qua `pino-pretty`).
+- Production (`NODE_ENV=production`): log JSON một dòng mỗi bản ghi, không
+  dùng `pino-pretty`.
+- Log level điều khiển bằng biến `LOG_LEVEL` (`fatal|error|warn|info|debug|
+  trace|silent`). Nếu không đặt, mặc định theo môi trường: development=
+  `debug`, test=`silent`, production=`info`.
+- Mỗi request có một Request ID duy nhất (header `x-request-id`, tái sử
+  dụng nếu client gửi lên hợp lệ). Cùng một ID xuất hiện trong log truy cập,
+  response header và error response.
+- Authorization header, cookie, password, token/refresh token và các secret
+  cấu hình (JWT secrets, SMTP password, Supabase service role key, ...) được
+  che (`[REDACTED]`) trong log. Request/response body không được ghi log
+  mặc định.
+
 ## Kiểm tra Mailpit
 
 Mailpit chặn toàn bộ email gửi trong môi trường dev/test, không gửi ra bên

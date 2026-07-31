@@ -6,6 +6,7 @@ import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis'
 import { AcceptLanguageResolver, I18nModule, QueryResolver } from 'nestjs-i18n';
 import * as path from 'path';
 import { AppConfigModule } from './config/app-config.module';
+import { LoggerModule } from './common/logger/logger.module';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './infrastructure/cache/redis.module';
 import { QueueModule } from './infrastructure/queue/queue.module';
@@ -19,6 +20,7 @@ import { RedisConfig } from './config/configuration';
 @Module({
   imports: [
     AppConfigModule,
+    LoggerModule,
     I18nModule.forRoot({
       fallbackLanguage: 'vi',
       loaderOptions: {

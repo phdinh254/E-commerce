@@ -37,4 +37,14 @@ export const envValidationSchema = Joi.object({
   SUPABASE_URL: Joi.string().uri().allow('').optional(),
   SUPABASE_SERVICE_ROLE_KEY: Joi.string().allow('').optional(),
   SUPABASE_STORAGE_BUCKET: Joi.string().allow('').optional(),
+
+  LOG_LEVEL: Joi.string()
+    .valid('fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent')
+    .when('NODE_ENV', {
+      switch: [
+        { is: 'production', then: Joi.string().default('info') },
+        { is: 'test', then: Joi.string().default('silent') },
+      ],
+      otherwise: Joi.string().default('debug'),
+    }),
 });

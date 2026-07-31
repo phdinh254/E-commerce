@@ -47,6 +47,19 @@ export interface SupabaseConfig {
   storageBucket?: string;
 }
 
+export type LogLevel =
+  'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
+
+export interface LoggerConfig {
+  level: LogLevel;
+}
+
+function defaultLogLevel(nodeEnv: string): LogLevel {
+  if (nodeEnv === 'production') return 'info';
+  if (nodeEnv === 'test') return 'silent';
+  return 'debug';
+}
+
 export default () => ({
   app: {
     nodeEnv: process.env.NODE_ENV ?? 'development',
@@ -93,4 +106,9 @@ export default () => ({
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || undefined,
     storageBucket: process.env.SUPABASE_STORAGE_BUCKET || undefined,
   } as SupabaseConfig,
+  logger: {
+    level:
+      (process.env.LOG_LEVEL as LogLevel | undefined) ??
+      defaultLogLevel(process.env.NODE_ENV ?? 'development'),
+  },
 });
