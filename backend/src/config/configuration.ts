@@ -13,7 +13,14 @@ export interface DatabaseConfig {
   user: string;
   password: string;
   ssl: boolean;
+  poolMax: number;
+  connectionTimeoutMs: number;
+  idleTimeoutMs: number;
 }
+
+export const DEFAULT_DB_POOL_MAX = 10;
+export const DEFAULT_DB_CONNECTION_TIMEOUT_MS = 5000;
+export const DEFAULT_DB_IDLE_TIMEOUT_MS = 10000;
 
 export interface RedisConfig {
   host: string;
@@ -78,6 +85,19 @@ export default () => ({
     user: process.env.DATABASE_USER as string,
     password: process.env.DATABASE_PASSWORD ?? '',
     ssl: process.env.DATABASE_SSL === 'true',
+    poolMax: parseInt(
+      process.env.DB_POOL_MAX ?? String(DEFAULT_DB_POOL_MAX),
+      10,
+    ),
+    connectionTimeoutMs: parseInt(
+      process.env.DB_CONNECTION_TIMEOUT_MS ??
+        String(DEFAULT_DB_CONNECTION_TIMEOUT_MS),
+      10,
+    ),
+    idleTimeoutMs: parseInt(
+      process.env.DB_IDLE_TIMEOUT_MS ?? String(DEFAULT_DB_IDLE_TIMEOUT_MS),
+      10,
+    ),
   },
   redis: {
     host: process.env.REDIS_HOST as string,

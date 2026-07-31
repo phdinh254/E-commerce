@@ -132,7 +132,16 @@ export class AuthService {
       });
     }
 
-    await this.refreshTokensRepository.revoke(existing.id);
+    const revoked = await this.refreshTokensRepository.revoke(existing.id);
+    if (!revoked) {
+      // Another request already rotated this exact token concurrently —
+      // treat it as reuse and invalidate every session for this user.
+      await this.refreshTokensRepository.revokeAllForUser(existing.userId);
+      throw new UnauthorizedException({
+        code: 'INVALID_REFRESH_TOKEN',
+        message: 'Phiên đăng nhập không hợp lệ',
+      });
+    }
 
     const accessToken = this.signAccessToken(user);
     const { rawToken, expiresAt } = await this.issueRefreshToken(user.id);

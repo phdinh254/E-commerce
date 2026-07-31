@@ -81,7 +81,14 @@ docker compose logs -f backend
 ## Migration
 
 TypeORM migration, **không** dùng `synchronize: true` ở bất kỳ môi trường
-nào.
+nào. Runtime (`DatabaseModule`) và CLI (`data-source.ts`) dùng chung
+`createPostgresConnectionOptions()` (`src/database/database.config.ts`) nên
+luôn cùng một quy tắc kết nối, pool và naming strategy.
+
+Connection pool và timeout cấu hình qua biến môi trường (validate bằng
+Joi, xem `.env.example`): `DB_POOL_MAX` (mặc định 10), `DB_CONNECTION_TIMEOUT_MS`
+(mặc định 5000), `DB_IDLE_TIMEOUT_MS` (mặc định 10000). Xem thêm
+`docs/database-design.md` để biết chi tiết thiết kế schema User/Auth.
 
 ```bash
 cd backend

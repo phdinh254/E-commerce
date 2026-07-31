@@ -153,6 +153,26 @@ describe('Auth (e2e)', () => {
       expect(reuseRes.body.code).toBe('INVALID_REFRESH_TOKEN');
     });
 
+    it('allows only one winner when the same refresh token is used concurrently', async () => {
+      const cookie = await registerAndLogin('concurrent@example.com');
+
+      const [first, second] = await Promise.all([
+        request(server()).post('/api/v1/auth/refresh').set('Cookie', cookie),
+        request(server()).post('/api/v1/auth/refresh').set('Cookie', cookie),
+      ]);
+
+      const statuses = [first.status, second.status].sort((a, b) => a - b);
+      expect(statuses).toEqual([200, 401]);
+
+      const loser = first.status === 401 ? first : second;
+      expect(loser.body.code).toBe('INVALID_REFRESH_TOKEN');
+
+      const reuseRes = await request(server())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', cookie);
+      expect(reuseRes.status).toBe(401);
+    });
+
     it('rejects refresh without a token', async () => {
       const res = await request(server()).post('/api/v1/auth/refresh');
       expect(res.status).toBe(401);

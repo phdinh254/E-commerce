@@ -25,11 +25,17 @@ export class RefreshTokensRepository {
     });
   }
 
-  async revoke(id: string): Promise<void> {
-    await this.repository.update(
+  /**
+   * Revokes the token only if it is still active (revokedAt IS NULL).
+   * Returns false if another request already revoked it first, so callers
+   * can treat a lost race as a reuse attempt instead of silently rotating.
+   */
+  async revoke(id: string): Promise<boolean> {
+    const result = await this.repository.update(
       { id, revokedAt: IsNull() },
       { revokedAt: new Date() },
     );
+    return (result.affected ?? 0) > 0;
   }
 
   async revokeAllForUser(userId: string): Promise<void> {
