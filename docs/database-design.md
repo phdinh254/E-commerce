@@ -1,23 +1,29 @@
-# Database Design — User & Authentication
+# Database Design — Core Entities (User, Auth, Category)
 
 Tài liệu này mô tả business requirements và thiết kế database thực tế của
-module **User** và **Auth** trong backend (`backend/src/modules/users`,
-`backend/src/modules/auth`, `backend/src/database`). Nội dung được tái dựng
-từ mã nguồn, migration và test hiện có — không phải từ giáo trình. Chỗ nào
+các module **User**, **Auth** (`backend/src/modules/users`,
+`backend/src/modules/auth`) và **Category**
+(`backend/src/modules/categories`) trong backend. Nội dung được tái dựng từ
+mã nguồn, migration và test hiện có — không phải từ giáo trình. Chỗ nào
 không suy ra được từ code/test sẽ được ghi rõ là **chưa xác định**.
 
 ## 1. Phạm vi
 
-Module này chịu trách nhiệm:
+Các phần đã triển khai và tài liệu hoá trong file này chịu trách nhiệm:
 
 - Lưu trữ tài khoản người dùng (`users`).
 - Xác thực bằng email/password (argon2) và cấp JWT access token.
 - Quản lý refresh token dạng session xoay vòng (rotation) với phát hiện
   tái sử dụng (reuse detection), lưu ở bảng `refresh_tokens`.
+- Tổ chức sản phẩm theo cây danh mục nhiều cấp (`categories`) — xem mục 14.
 
-Ngoài phạm vi (thuộc các bài/module khác, **không** đụng tới ở đây):
-Address, Category, Brand, Product, Inventory, Coupon, Cart, Order, Payment,
-Shipment, Review, Search, Supabase Storage, PayOS.
+Ngoài phạm vi (thuộc các bài/module khác, **chưa triển khai**, không đụng
+tới ở đây): Address (**lưu ý:** chưa có migration/module Address nào trong
+repository tại thời điểm viết tài liệu này, dù có thể được đề cập là "đã xử
+lý" ở nơi khác — xem mục J của báo cáo Bài 23), Brand, Product,
+ProductImage, ProductVariant, Inventory, Coupon, Cart, Order, Payment,
+Shipment, Review, Search, Elasticsearch, Supabase Storage, PayOS,
+CategoryTranslation, Locale.
 
 ## 2. Actor và quyền hạn
 
@@ -262,3 +268,185 @@ cho các luồng trên.
    (`src/database/database.module.ts`) dùng chung
    `createPostgresConnectionOptions()` (`src/database/database.config.ts`)
    để đảm bảo cùng một cấu hình kết nối/pool/naming strategy.
+
+## 14. Category — business requirements
+
+Category tổ chức sản phẩm theo cấu trúc cây nhiều cấp (self-referencing
+adjacency list qua `parent_id`). Yêu cầu nghiệp vụ đã xác nhận:
+
+- Một Category có thể là gốc (không `parent`) hoặc con (đúng một `parent`).
+- Một Category có thể có nhiều Category con; cây có thể có nhiều cấp,
+  **không giới hạn độ sâu** (chưa có business requirement nào giới hạn).
+- Category có `slug` duy nhất dùng cho URL, `displayOrder` để admin sắp xếp
+  thủ công, `isActive` để ẩn/hiện, `name` bắt buộc, `description` và
+  `imageUrl` tuỳ chọn.
+- Category dùng soft delete (`deletedAt`).
+- Một Product (chưa triển khai) sẽ thuộc một Category trong tương lai.
+
+Actor & quyền hạn dự kiến cho CRUD Category trong tương lai (**chưa triển
+khai trong lượt này**, chỉ ghi nhận để CRUD sau này bám theo):
+
+- Chỉ `ADMIN` được tạo, sửa, sắp xếp, ẩn/hiện và xóa Category.
+- Người dùng công khai chỉ đọc Category `isActive=true` và chưa bị xóa mềm.
+
+## 15. Thiết kế cây Category (adjacency list)
+
+**Quyết định:** dùng adjacency list (`parent_id` tự tham chiếu), **không**
+dùng nested set (left/right), materialized path, hay closure table. Lý do:
+các mô hình đó tối ưu cho truy vấn "lấy toàn bộ cây con" trên cây lớn với
+chi phí ghi cao hơn (nested set phải cập nhật hàng loạt dòng khi
+insert/move); ở quy mô Category của một cửa hàng thương mại điện tử (nhiều
+nhất vài trăm-vài nghìn danh mục), adjacency list cộng truy vấn đệ quy khi
+cần là đủ và đơn giản hơn để duy trì đúng. Sẽ cân nhắc lại nếu có bằng
+chứng truy vấn cây quy mô lớn thực sự cần tối ưu hơn.
+
+Quan hệ:
+
+- `CategoryEntity.parent` - ManyToOne tới chính `CategoryEntity`,
+  nullable, `onDelete: RESTRICT`, không eager, không cascade.
+- `CategoryEntity.children` - OneToMany ngược lại, không eager, không
+  cascade.
+- Category gốc: `parent_id IS NULL`.
+- **ON DELETE RESTRICT**: hard-delete một Category còn con sẽ bị PostgreSQL
+  từ chối (lỗi FK violation) thay vì âm thầm xóa cascade toàn cây hoặc tự
+  động biến con thành gốc. Đã kiểm chứng bằng test
+  "blocks hard-deleting a parent category that still has children"
+  (`backend/test/category-schema.e2e-spec.ts`).
+- **Check constraint chống tự làm cha** (`CHK_categories_parent_not_self`):
+  `parent_id IS NULL OR parent_id <> id`. Đã kiểm chứng bằng test thực trên
+  PostgreSQL ("rejects a category being its own parent").
+- **Giới hạn đã biết của check constraint này**: nó chỉ chặn được trường
+  hợp một Category trực tiếp làm cha của chính nó (độ sâu 1). Nó không phát
+  hiện được chu trình nhiều cấp kiểu A tới B tới C tới A. Việc phát hiện
+  chu trình nhiều cấp là trách nhiệm của Category service trong tương lai,
+  phải chạy trong transaction khi cho phép đổi `parentId` của một Category
+  đã tồn tại. **Bài 23 chưa triển khai CRUD/service nên invariant chống
+  chu trình nhiều cấp CHƯA được coi là hoàn thành** - chỉ mới có check
+  constraint chống tự-làm-cha ở độ sâu 1.
+
+## 16. Slug
+
+- `slug` bắt buộc (NOT NULL), kiểu `varchar(255)`, không dùng kiểu số.
+- Unique **toàn bộ bảng, kể cả Category đã soft delete** - dùng unique
+  constraint thường (`UQ_categories_slug`), không dùng partial unique index
+  kiểu `WHERE deleted_at IS NULL`. Lý do: tránh một URL/slug cũ vô tình trỏ
+  sang Category mới sau khi Category cũ bị xóa mềm, và tránh mơ hồ khi khôi
+  phục Category đã xóa. Đã kiểm chứng bằng test "soft delete keeps the row
+  in the database and reserves its slug".
+- Chỉ một cơ chế duy nhất đảm bảo unique: unique constraint thường
+  (case-sensitive) ở tầng database. Không dùng đồng thời `citext`,
+  functional index `lower(slug)`, và chuẩn hóa application layer cùng lúc -
+  tránh nhiều cơ chế trùng trách nhiệm.
+- Chuẩn hóa/trim slug ở application layer chưa được triển khai trong lượt
+  này vì chưa có Category service/CRUD. Hiện tại DB chỉ đảm bảo unique theo
+  giá trị byte chính xác (case-sensitive: "Ao-Thun" và "ao-thun" được coi
+  là khác nhau). Khi CRUD Category được xây dựng, service đó bắt buộc phải
+  trim + lowercase slug trước khi lưu để tránh trùng lặp về mặt hiển thị và
+  để giữ nhất quán với cách `email` được chuẩn hóa ở Auth.
+
+## 17. displayOrder và isActive
+
+- `display_order integer NOT NULL DEFAULT 0`, có check
+  `CHK_categories_display_order_non_negative` (`display_order >= 0`).
+  Không phải định danh, không yêu cầu duy nhất - nhiều Category cùng cấp có
+  thể cùng `displayOrder` (sắp xếp ổn định theo `createdAt`/`id` là trách
+  nhiệm của application layer tương lai, chưa triển khai).
+- `is_active boolean NOT NULL DEFAULT true`. `isActive=false` nghĩa là tạm
+  ẩn, không phải đã xóa. `deletedAt` mới là đã xóa mềm.
+- Quy tắc hiển thị công khai dự kiến (application layer tương lai, chưa
+  được database đảm bảo): một Category chỉ hiển thị công khai khi bản thân
+  nó `isActive=true`, chưa `deletedAt`, và toàn bộ tổ tiên của nó cũng
+  `isActive=true` và chưa bị xóa mềm. Việc kiểm tra toàn bộ chuỗi tổ tiên
+  là trách nhiệm tương lai; tắt Category cha không tự động cập nhật
+  `isActive` của Category con (không có trigger hay cascade nào làm việc
+  này ở lượt này).
+
+## 18. Soft delete
+
+- `deleted_at timestamptz NULL`, dùng `@DeleteDateColumn` - cùng convention
+  với `UserEntity`.
+- Soft delete không phải cascade toàn cây: xóa mềm một Category cha không
+  tự động xóa mềm Category con (TypeORM softDelete/softRemove không
+  cascade trừ khi khai báo cascade trên relation - relation ở đây không
+  khai báo cascade).
+- Quy tắc "khi xóa Category cha còn con thì phải làm gì" (chặn / xóa mềm cả
+  cây / chuyển con sang gốc / chuyển con sang Category khác) chưa được xác
+  định rõ. Đề xuất an toàn cho CRUD tương lai: chặn xóa (kể cả soft delete)
+  khi còn Category con đang hoạt động hoặc còn Product đang dùng, trừ khi
+  admin thực hiện thao tác tái cấu trúc rõ ràng (ví dụ chuyển con sang
+  Category khác trước). Đây chỉ là đề xuất cho application layer tương lai
+  - Bài 23 không triển khai service nên không có gì thực thi quy tắc này ở
+  hiện tại; database chỉ đảm bảo ON DELETE RESTRICT cho hard delete.
+- Hard delete chỉ nên dùng cho: rollback migration, dữ liệu test cô lập,
+  hoặc thao tác quản trị đặc biệt đã kiểm soát - không phải luồng nghiệp vụ
+  thông thường.
+
+## 19. Index và constraint - Category
+
+| Constraint/Index | Loại | Lý do |
+| --- | --- | --- |
+| `PK_categories_id` | Primary key (uuid) | Khoá chính |
+| `UQ_categories_slug` | Unique constraint | Slug duy nhất toàn bảng (mục 16) |
+| `FK_categories_parent_id` | Self foreign key, ON DELETE RESTRICT | Chặn hard-delete cha còn con (mục 15) |
+| `CHK_categories_parent_not_self` | Check | Chặn tự làm cha ở độ sâu 1 (mục 15) |
+| `CHK_categories_display_order_non_negative` | Check | `display_order >= 0` |
+| `IDX_categories_parent_id_display_order` | Composite index (parent_id, display_order) | Phục vụ truy vấn "liệt kê Category con của một cha, sắp theo displayOrder" - query cây phổ biến nhất; đồng thời đóng vai trò index cho riêng parent_id (prefix trái), nên không tạo thêm index đơn parent_id để tránh trùng prefix |
+
+**Không thêm** (chưa có bằng chứng nhu cầu truy vấn): index riêng trên
+`is_active` (selectivity thấp - chỉ 2 giá trị), index trên `name`.
+
+## 20. Quan hệ Product tương lai
+
+Workbook xác nhận: một Category có nhiều Product, một Product thuộc một
+Category. **`ProductEntity` chưa tồn tại trong repository** - do đó
+`CategoryEntity` không khai báo relation tới Product, không có cột
+`product_id`, không tạo bảng `products`, và không thêm cột đếm
+`productCount` (số lượng Product nên tính bằng query/projection khi Product
+tồn tại, không lưu denormalized). Khi Product được triển khai,
+`ProductEntity` sẽ có `categoryId`/`category` trỏ về `CategoryEntity` hiện
+tại - không cần đổi gì ở phía Category.
+
+## 21. Đa ngôn ngữ tương lai (category_translations)
+
+Trong lượt này, `name` và `description` vẫn nằm trực tiếp trên bảng
+`categories`, đóng vai trò dữ liệu ngôn ngữ mặc định. Không tạo bảng
+`locales` hay `category_translations`, không thêm `localeId`, không thêm
+cột `nameVi`/`nameEn`.
+
+Chiến lược i18n tương lai (chỉ ghi nhận, chưa triển khai):
+
+- Tạo bảng `locales` và `category_translations` (mỗi Category có tối đa
+  một bản dịch cho mỗi locale).
+- `slug`, `imageUrl`, `parentId`, `isActive`, `displayOrder` vẫn thuộc bảng
+  `categories` - đây là thuộc tính không phụ thuộc ngôn ngữ, không di
+  chuyển sang bảng dịch.
+- Migration i18n tương lai phải backfill `name`/`description` hiện tại
+  thành bản dịch mặc định (ví dụ locale vi) cho mọi Category đang có,
+  không được để mất dữ liệu.
+- Ứng dụng cần cơ chế fallback về locale mặc định khi thiếu bản dịch cho
+  một locale được yêu cầu.
+
+## 22. Sơ đồ ER - Category (hiện trạng thật)
+
+```mermaid
+erDiagram
+    categories ||--o{ categories : "parent of"
+
+    categories {
+        uuid id PK
+        uuid parent_id FK "nullable, self-referencing, ON DELETE RESTRICT"
+        varchar name
+        varchar slug UK
+        varchar description "nullable"
+        varchar image_url "nullable"
+        integer display_order "default 0, greater or equal 0"
+        boolean is_active "default true"
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at "nullable, soft delete"
+    }
+```
+
+Sơ đồ này chỉ thể hiện self-relation của `categories` - không có bảng
+`products`, `locales`, hay `category_translations` vì các bảng đó chưa tồn
+tại trong repository.

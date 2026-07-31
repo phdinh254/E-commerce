@@ -88,7 +88,8 @@ luôn cùng một quy tắc kết nối, pool và naming strategy.
 Connection pool và timeout cấu hình qua biến môi trường (validate bằng
 Joi, xem `.env.example`): `DB_POOL_MAX` (mặc định 10), `DB_CONNECTION_TIMEOUT_MS`
 (mặc định 5000), `DB_IDLE_TIMEOUT_MS` (mặc định 10000). Xem thêm
-`docs/database-design.md` để biết chi tiết thiết kế schema User/Auth.
+`docs/database-design.md` để biết chi tiết thiết kế schema User/Auth/Category
+(bảng `categories` — cây danh mục self-referencing qua `parent_id`).
 
 ```bash
 cd backend

@@ -14,6 +14,7 @@ import { MailModule } from './infrastructure/mail/mail.module';
 import { StorageModule } from './infrastructure/storage/storage.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CategoriesModule } from './modules/categories/categories.module';
 import { HealthModule } from './modules/health/health.module';
 import { RedisConfig } from './config/configuration';
 
@@ -53,6 +54,7 @@ import { RedisConfig } from './config/configuration';
     StorageModule,
     UsersModule,
     AuthModule,
+    CategoriesModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
