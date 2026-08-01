@@ -1,0 +1,79 @@
+name: ecommerce-elk
+
+# Development/demo ELK stack. Security is disabled for local convenience —
+# do NOT reuse this compose file as-is in production (no TLS, no auth, no
+# resource limits sized for real traffic).
+#
+# Usage:
+#   docker compose -f devops/elk/docker-compose.elk.yml up -d
+#   # then start (or restart) the app stack so Filebeat can discover it:
+#   docker compose up -d --build backend
+#   # Kibana: http://localhost:5601 — create a data view on "ecommerce-backend-*"
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: 'false'
+      ES_JAVA_OPTS: '-Xms512m -Xmx512m'
+    ports:
+      - '9200:9200'
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:9200/_cluster/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - elk_net
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.15.0
+    restart: unless-stopped
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+    ports:
+      - '5044:5044'
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - elk_net
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.0
+    restart: unless-stopped
+    environment:
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+    ports:
+      - '5601:5601'
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - elk_net
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.15.0
+    restart: unless-stopped
+    user: root
+    command: ['--strict.perms=false', '-e']
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    depends_on:
+      - logstash
+    networks:
+      - elk_net
+
+volumes:
+  es_data:
+
+networks:
+  elk_net:
+    driver: bridge

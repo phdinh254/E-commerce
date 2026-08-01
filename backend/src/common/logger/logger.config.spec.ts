@@ -12,6 +12,8 @@ function buildAppConfig(nodeEnv: string): AppConfig {
     apiPrefix: 'api',
     appOrigin: 'http://localhost:3000',
     corsOrigins: [],
+    frontendUrl: 'http://localhost:3001',
+    appName: 'E-commerce',
   };
 }
 
@@ -78,6 +80,19 @@ describe('createPinoHttpOptions', () => {
     expect(() => {
       JSON.parse(lines[0]);
     }).not.toThrow();
+  });
+
+  it('tags every log line with a stable service name for ELK/Kibana filtering', () => {
+    const options = createPinoHttpOptions(buildAppConfig('production'), {
+      level: 'info',
+    });
+    const stream = new CapturingStream();
+    const logger = pino({ level: options.level, base: options.base }, stream);
+
+    logger.info({ msg: 'request completed' });
+
+    const parsed = JSON.parse(stream.output.trim()) as { service: string };
+    expect(parsed.service).toBe('ecommerce-backend');
   });
 
   describe('redaction of sensitive data', () => {

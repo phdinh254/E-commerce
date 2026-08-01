@@ -44,6 +44,9 @@ export function createPinoHttpOptions(
 
   return {
     level: loggerConfig.level,
+    // Static field on every line so Logstash/Kibana can filter this
+    // service's logs out of a shared Elasticsearch index.
+    base: { service: 'ecommerce-backend' },
     genReqId: (req) => {
       const request = req as Request;
       return (
