@@ -23,4 +23,35 @@ export const authApi = {
     await apiClient.post("/auth/logout");
     setAccessToken(null);
   },
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const response = await apiClient.post<{ message: string }>(
+      "/auth/forgot-password",
+      { email },
+    );
+    return response.data;
+  },
+  async resetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    const response = await apiClient.post<{ message: string }>(
+      "/auth/reset-password",
+      { token, newPassword },
+    );
+    return response.data;
+  },
+  async verifyEmail(token: string): Promise<{ verified: true }> {
+    const response = await apiClient.post<{ verified: true }>(
+      "/auth/verify-email",
+      { token },
+    );
+    return response.data;
+  },
+  async resendVerification(email: string): Promise<{ message: string }> {
+    const response = await apiClient.post<{ message: string }>(
+      "/auth/resend-verification",
+      { email },
+    );
+    return response.data;
+  },
 };

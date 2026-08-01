@@ -4,25 +4,30 @@ import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
 import { RefreshTokenEntity } from './entities/refresh-token.entity';
+import { VerificationTokenEntity } from './entities/verification-token.entity';
 import { RefreshTokensRepository } from './refresh-tokens.repository';
+import { VerificationTokensRepository } from './verification-tokens.repository';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { UsersModule } from '../users/users.module';
+import { MailModule } from '../../infrastructure/mail/mail.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([RefreshTokenEntity]),
+    TypeOrmModule.forFeature([RefreshTokenEntity, VerificationTokenEntity]),
     PassportModule,
     JwtModule.register({}),
     UsersModule,
+    MailModule,
   ],
   controllers: [AuthController],
   providers: [
     AuthService,
     RefreshTokensRepository,
+    VerificationTokensRepository,
     JwtStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

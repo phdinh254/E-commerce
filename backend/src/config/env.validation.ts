@@ -37,6 +37,9 @@ export const envValidationSchema = Joi.object({
   SMTP_PASSWORD: Joi.string().allow('').optional(),
   SMTP_FROM: Joi.string().required(),
 
+  FRONTEND_URL: Joi.string().uri().required(),
+  APP_NAME: Joi.string().default('E-commerce'),
+
   SUPABASE_URL: Joi.string().uri().allow('').optional(),
   SUPABASE_SERVICE_ROLE_KEY: Joi.string().allow('').optional(),
   SUPABASE_STORAGE_BUCKET: Joi.string().allow('').optional(),

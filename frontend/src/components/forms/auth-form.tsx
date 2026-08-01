@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -26,7 +26,17 @@ const content = {
 };
 
 export function AuthForm({ mode }: { mode: AuthMode }) {
+  return (
+    <Suspense fallback={null}>
+      <AuthFormInner mode={mode} />
+    </Suspense>
+  );
+}
+
+function AuthFormInner({ mode }: { mode: AuthMode }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const resetToken = mode === "reset" ? searchParams.get("token") : null;
   const [showPassword, setShowPassword] = useState(false);
   const schema = useMemo(() => z.object({ fullName: z.string().optional(), email: z.email("Email chưa đúng định dạng."), password: z.string().optional(), confirmPassword: z.string().optional() }).superRefine((values, context) => {
     if (mode === "register" && (!values.fullName || values.fullName.trim().length < 2)) context.addIssue({ code: "custom", path: ["fullName"], message: "Họ tên phải có ít nhất 2 ký tự." });
@@ -37,13 +47,20 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const mutation = useMutation({
     mutationFn: async (values: AuthValues) => {
       if (mode === "login") { await authApi.login({ email: values.email, password: values.password ?? "" }); return "Đăng nhập thành công."; }
-      if (mode === "register") { await authApi.register({ fullName: values.fullName ?? "", email: values.email, password: values.password ?? "" }); return "Tạo tài khoản thành công."; }
-      // TODO(api): Backend does not expose forgot-password or reset-password endpoints yet.
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      return mode === "forgot" ? "Nếu email đã được đăng ký, hướng dẫn đặt lại mật khẩu sẽ được gửi đến hộp thư của bạn." : "Mật khẩu đã được cập nhật trong bản dùng thử.";
+      if (mode === "register") { await authApi.register({ fullName: values.fullName ?? "", email: values.email, password: values.password ?? "" }); return "Tạo tài khoản thành công. Vui lòng kiểm tra email để xác minh tài khoản."; }
+      if (mode === "forgot") { const { message } = await authApi.forgotPassword(values.email); return message; }
+      if (!resetToken) throw new Error("MISSING_RESET_TOKEN");
+      const { message } = await authApi.resetPassword(resetToken, values.password ?? "");
+      return message;
     },
-    onSuccess: (message) => { toast.success(message); router.push(mode === "login" ? "/account" : mode === "register" ? "/login" : mode === "forgot" ? "/login" : "/login"); },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
+    onSuccess: (message) => { toast.success(message); router.push(mode === "login" ? "/account" : "/login"); },
+    onError: (error) => {
+      if (error instanceof Error && error.message === "MISSING_RESET_TOKEN") {
+        toast.error("Đường dẫn đặt lại mật khẩu không hợp lệ. Vui lòng yêu cầu lại.");
+        return;
+      }
+      toast.error(getApiErrorMessage(error));
+    },
   });
   const config = content[mode];
   return (

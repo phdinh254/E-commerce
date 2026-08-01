@@ -21,6 +21,7 @@ function baseEnv(
     JWT_REFRESH_SECRET: 'b'.repeat(32),
     SMTP_HOST: 'localhost',
     SMTP_FROM: 'no-reply@example.com',
+    FRONTEND_URL: 'http://localhost:3001',
     ...overrides,
   };
 }
@@ -77,4 +78,33 @@ describe('envValidationSchema (database pool settings)', () => {
       expect(error).toBeDefined();
     },
   );
+});
+
+describe('envValidationSchema (FRONTEND_URL / APP_NAME)', () => {
+  it('requires FRONTEND_URL to be a valid absolute URL', () => {
+    const { error } = envValidationSchema.validate(
+      baseEnv({ FRONTEND_URL: 'not-a-url' }),
+      { allowUnknown: true, abortEarly: false },
+    );
+    expect(error).toBeDefined();
+  });
+
+  it('rejects a missing FRONTEND_URL', () => {
+    const env = baseEnv();
+    delete (env as Record<string, string | undefined>).FRONTEND_URL;
+    const { error } = envValidationSchema.validate(env, {
+      allowUnknown: true,
+      abortEarly: false,
+    });
+    expect(error).toBeDefined();
+  });
+
+  it('defaults APP_NAME when unset', () => {
+    const { error, value } = envValidationSchema.validate(baseEnv(), {
+      allowUnknown: true,
+      abortEarly: false,
+    }) as { error: unknown; value: { APP_NAME: string } };
+    expect(error).toBeUndefined();
+    expect(value.APP_NAME).toBe('E-commerce');
+  });
 });

@@ -25,4 +25,12 @@ export class UsersRepository {
   save(user: UserEntity): Promise<UserEntity> {
     return this.repository.save(user);
   }
+
+  async markEmailVerified(id: string): Promise<void> {
+    await this.repository.update({ id }, { emailVerifiedAt: new Date() });
+  }
+
+  async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
+    await this.repository.update({ id }, { passwordHash });
+  }
 }

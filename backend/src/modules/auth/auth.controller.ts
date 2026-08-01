@@ -27,6 +27,10 @@ import { AuthService } from './auth.service';
 import { REFRESH_TOKEN_COOKIE } from './auth.constants';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { AuthResponseDto, UserResponseDto } from './dto/auth-response.dto';
 import { UserEntity } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
@@ -60,6 +64,8 @@ export class AuthController {
       dto.password,
       dto.fullName,
     );
+    // Best-effort: verification email delivery never blocks registration.
+    await this.authService.requestEmailVerification(user);
     return this.toUserResponse(user);
   }
 
@@ -146,6 +152,73 @@ export class AuthController {
       throw new BadRequestException();
     }
     return this.toUserResponse(user);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Verify an account using an email verification token',
+  })
+  @ApiResponse({ status: 200, description: 'Email verified' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired token' })
+  async verifyEmail(@Body() dto: VerifyEmailDto): Promise<{ verified: true }> {
+    await this.authService.verifyEmail(dto.token);
+    return { verified: true };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Resend the account verification email' })
+  @ApiResponse({
+    status: 202,
+    description:
+      'Always returned regardless of whether the email exists or is already verified',
+  })
+  async resendVerification(
+    @Body() dto: ResendVerificationDto,
+  ): Promise<{ message: string }> {
+    await this.authService.resendVerificationEmail(dto.email);
+    return {
+      message:
+        'Nếu email tồn tại và chưa xác minh, hướng dẫn xác minh sẽ được gửi.',
+    };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Request a password reset email' })
+  @ApiResponse({
+    status: 202,
+    description: 'Always returned regardless of whether the email exists',
+  })
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+  ): Promise<{ message: string }> {
+    await this.authService.requestPasswordReset(dto.email);
+    return {
+      message:
+        'Nếu email đã được đăng ký, hướng dẫn đặt lại mật khẩu sẽ được gửi.',
+    };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset the password using a reset token' })
+  @ApiResponse({ status: 200, description: 'Password updated' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired token' })
+  async resetPassword(
+    @Body() dto: ResetPasswordDto,
+  ): Promise<{ message: string }> {
+    await this.authService.resetPassword(dto.token, dto.newPassword);
+    return { message: 'Mật khẩu đã được cập nhật.' };
   }
 
   private setRefreshTokenCookie(res: Response, token: string): void {

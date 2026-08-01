@@ -256,4 +256,71 @@ describe('Auth (e2e)', () => {
       expect(meRes.body.email).toBe('me@example.com');
     });
   });
+
+  describe('POST /api/v1/auth/verify-email', () => {
+    it('rejects a garbage/invalid token', async () => {
+      const res = await request(server())
+        .post('/api/v1/auth/verify-email')
+        .send({ token: 'not-a-real-token' });
+      expect(res.status).toBe(401);
+      expect(res.body.code).toBe('INVALID_VERIFICATION_TOKEN');
+    });
+  });
+
+  describe('POST /api/v1/auth/forgot-password', () => {
+    it('responds identically whether or not the email exists (no enumeration)', async () => {
+      await request(server()).post('/api/v1/auth/register').send({
+        email: 'exists@example.com',
+        password: 'StrongPass123!',
+        fullName: 'Exists User',
+      });
+
+      const existing = await request(server())
+        .post('/api/v1/auth/forgot-password')
+        .send({ email: 'exists@example.com' });
+      const missing = await request(server())
+        .post('/api/v1/auth/forgot-password')
+        .send({ email: 'doesnotexist@example.com' });
+
+      expect(existing.status).toBe(missing.status);
+      expect(existing.body).toEqual(missing.body);
+    });
+  });
+
+  describe('POST /api/v1/auth/resend-verification', () => {
+    it('responds identically whether or not the email exists (no enumeration)', async () => {
+      await request(server()).post('/api/v1/auth/register').send({
+        email: 'resend@example.com',
+        password: 'StrongPass123!',
+        fullName: 'Resend User',
+      });
+
+      const existing = await request(server())
+        .post('/api/v1/auth/resend-verification')
+        .send({ email: 'resend@example.com' });
+      const missing = await request(server())
+        .post('/api/v1/auth/resend-verification')
+        .send({ email: 'doesnotexist@example.com' });
+
+      expect(existing.status).toBe(missing.status);
+      expect(existing.body).toEqual(missing.body);
+    });
+  });
+
+  describe('POST /api/v1/auth/reset-password', () => {
+    it('rejects a garbage/invalid token and does not reveal which part failed', async () => {
+      const res = await request(server())
+        .post('/api/v1/auth/reset-password')
+        .send({ token: 'not-a-real-token', newPassword: 'NewStrongPass123!' });
+      expect(res.status).toBe(401);
+      expect(res.body.code).toBe('INVALID_RESET_TOKEN');
+    });
+
+    it('rejects a request missing newPassword', async () => {
+      const res = await request(server())
+        .post('/api/v1/auth/reset-password')
+        .send({ token: 'not-a-real-token' });
+      expect(res.status).toBe(400);
+    });
+  });
 });

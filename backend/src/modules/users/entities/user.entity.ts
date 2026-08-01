@@ -51,6 +51,13 @@ export class UserEntity {
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt: Date | null;
 
+  @Column({
+    name: 'email_verified_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  emailVerifiedAt: Date | null;
+
   @OneToMany(() => RefreshTokenEntity, (token) => token.user)
   refreshTokens: RefreshTokenEntity[];
 

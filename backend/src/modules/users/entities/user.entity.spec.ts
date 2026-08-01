@@ -53,6 +53,11 @@ describe('UserEntity metadata', () => {
     expect(column('deletedAt').options.nullable).toBe(true);
   });
 
+  it('has a nullable emailVerifiedAt timestamp — unverified users default to null', () => {
+    expect(column('emailVerifiedAt').options.nullable).toBe(true);
+    expect(column('emailVerifiedAt').options.type).toBe('timestamptz');
+  });
+
   it('does not eager-load addresses (would otherwise be fetched on every user query)', () => {
     const addressesRelation = relations.find(
       (r) => r.propertyName === 'addresses',

@@ -35,4 +35,12 @@ export class UsersService {
   isLoginAllowed(user: UserEntity): boolean {
     return user.status === UserStatus.ACTIVE;
   }
+
+  markEmailVerified(id: string): Promise<void> {
+    return this.usersRepository.markEmailVerified(id);
+  }
+
+  updatePasswordHash(id: string, passwordHash: string): Promise<void> {
+    return this.usersRepository.updatePasswordHash(id, passwordHash);
+  }
 }

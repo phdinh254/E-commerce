@@ -4,6 +4,8 @@ export interface AppConfig {
   apiPrefix: string;
   appOrigin: string;
   corsOrigins: string[];
+  frontendUrl: string;
+  appName: string;
 }
 
 export interface DatabaseConfig {
@@ -77,6 +79,8 @@ export default () => ({
       .split(',')
       .map((origin) => origin.trim())
       .filter(Boolean),
+    frontendUrl: process.env.FRONTEND_URL as string,
+    appName: process.env.APP_NAME ?? 'E-commerce',
   },
   database: {
     host: process.env.DATABASE_HOST as string,
