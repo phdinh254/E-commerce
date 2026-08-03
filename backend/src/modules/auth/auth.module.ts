@@ -19,6 +19,7 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { GoogleAuthCallbackGuard } from './guards/google-auth-callback.guard';
 import { UsersModule } from '../users/users.module';
 import { MailModule } from '../../infrastructure/mail/mail.module';
+import { GuestModule } from '../guest/guest.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { MailModule } from '../../infrastructure/mail/mail.module';
     JwtModule.register({}),
     UsersModule,
     MailModule,
+    GuestModule,
   ],
   controllers: [AuthController],
   providers: [

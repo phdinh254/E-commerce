@@ -40,6 +40,8 @@ import { GoogleAuthCallbackGuard } from './guards/google-auth-callback.guard';
 import { GoogleProfile } from './strategies/google.strategy';
 import { GOOGLE_OAUTH_STATE_COOKIE } from './auth.constants';
 import { AppConfig } from '../../config/configuration';
+import { GuestClaimService } from '../guest/guest-claim.service';
+import { GUEST_SESSION_COOKIE } from '../guest/guest.constants';
 
 const REFRESH_TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -52,6 +54,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
+    private readonly guestClaimService: GuestClaimService,
   ) {
     this.cookieConfig = this.configService.get<CookieConfig>(
       'cookie',
@@ -64,7 +67,11 @@ export class AuthController {
   @ApiOperation({ summary: 'Register a new customer account' })
   @ApiResponse({ status: 201, type: UserResponseDto })
   @ApiResponse({ status: 409, description: 'Email already exists' })
-  async register(@Body() dto: RegisterDto): Promise<UserResponseDto> {
+  async register(
+    @Body() dto: RegisterDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<UserResponseDto> {
     const user = await this.authService.register(
       dto.email,
       dto.password,
@@ -72,6 +79,7 @@ export class AuthController {
     );
     // Best-effort: verification email delivery never blocks registration.
     await this.authService.requestEmailVerification(user);
+    await this.claimGuestSessionIfPresent(req, res, user.id);
     return this.toUserResponse(user);
   }
 
@@ -84,6 +92,7 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(
     @Body() dto: LoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
     const user = await this.authService.validateCredentials(
@@ -92,6 +101,7 @@ export class AuthController {
     );
     const result = await this.authService.login(user);
     this.setRefreshTokenCookie(res, result.refreshToken);
+    await this.claimGuestSessionIfPresent(req, res, result.user.id);
     return {
       accessToken: result.accessToken,
       user: this.toUserResponse(result.user),
@@ -144,8 +154,42 @@ export class AuthController {
     const result = await this.authService.loginWithGoogle(profile);
     this.setRefreshTokenCookie(res, result.refreshToken);
     res.clearCookie(GOOGLE_OAUTH_STATE_COOKIE, { path: '/' });
+    await this.claimGuestSessionIfPresent(req, res, result.user.id);
     const appConfig = this.configService.get<AppConfig>('app') as AppConfig;
     res.redirect(`${appConfig.frontendUrl}/auth/google/callback`);
+  }
+
+  /**
+   * Reads the guest cookie directly off the request — never a guestId
+   * supplied by the client — and hands it to `GuestClaimService`. A claim
+   * failure (including "already claimed by another user") never blocks the
+   * login/register response that triggered it; it is logged and the guest
+   * cookie is cleared regardless, since this browser is now authenticated
+   * and has no further use for it either way.
+   */
+  private async claimGuestSessionIfPresent(
+    req: Request,
+    res: Response,
+    userId: string,
+  ): Promise<void> {
+    const cookies = req.cookies as Record<string, string> | undefined;
+    const rawGuestToken = cookies?.[GUEST_SESSION_COOKIE];
+    if (rawGuestToken) {
+      try {
+        await this.guestClaimService.claimFromRawToken(rawGuestToken, userId);
+      } catch {
+        // Already logged with a SECURITY warning inside GuestClaimService
+        // for the "claimed by someone else" case; any other failure is
+        // swallowed here so it can never break login/register.
+      }
+    }
+    res.clearCookie(GUEST_SESSION_COOKIE, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: this.cookieConfig.secure,
+      domain: this.cookieConfig.domain,
+      path: '/',
+    });
   }
 
   @Public()
