@@ -1,4 +1,6 @@
 export const REFRESH_TOKEN_COOKIE = 'refresh_token';
+export const GOOGLE_OAUTH_STATE_COOKIE = 'oauth_state';
+export const GOOGLE_OAUTH_PROVIDER = 'google';
 
 export const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 export const EMAIL_VERIFICATION_TOKEN_TTL_HOURS = 24;

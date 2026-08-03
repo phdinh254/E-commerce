@@ -10,9 +10,12 @@ export interface NewRefreshTokenData {
   expiresAt: Date;
 }
 
+const REUSE_GRACE_WINDOW_MS = 250;
+
 export type RefreshRotationOutcome =
   | { kind: 'success'; user: UserEntity }
   | { kind: 'invalid' }
+  | { kind: 'reused' }
   | { kind: 'expired' }
   | { kind: 'inactive_user' };
 
@@ -57,6 +60,13 @@ export class RefreshTokensRepository {
     );
   }
 
+  async revokeFamily(familyId: string): Promise<void> {
+    await this.repository.update(
+      { familyId, revokedAt: IsNull() },
+      { revokedAt: new Date() },
+    );
+  }
+
   async deleteExpired(before: Date): Promise<void> {
     await this.repository.delete({ expiresAt: LessThan(before) });
   }
@@ -67,18 +77,32 @@ export class RefreshTokensRepository {
    * two concurrent requests presenting the same raw token are serialized on
    * that row instead of racing.
    *
-   * The second (losing) request only ever sees the row after the first
-   * request's transaction has committed — at which point it is already
-   * revoked — and simply returns `{ kind: 'invalid' }` without touching any
-   * other session. This is the fix for the previous design, which called
-   * `revokeAllForUser` outside any lock whenever the conditional revoke
-   * update affected zero rows; that could fire *after* the winning request
-   * had already inserted its new token, wiping out a token that had just
-   * been legitimately issued.
+   * Presenting a token whose `revokedAt` is already set means some earlier
+   * request already rotated it away. Two different situations look
+   * identical at this point:
+   *
+   *  1. A genuine concurrent duplicate — two requests raced to rotate the
+   *     exact same raw token (double-submit, network retry, multiple tabs).
+   *     The pessimistic lock serializes them, so the loser simply observes
+   *     the winner's commit microseconds later. The winner's brand-new
+   *     token must survive untouched.
+   *  2. Real reuse — a stale token (stolen cookie, replayed request) is
+   *     presented well after the legitimate client already moved on to a
+   *     later-generation token. This is the classic refresh-token-theft
+   *     signal and must revoke the whole family, including whatever token
+   *     is currently active in it.
+   *
+   * `REUSE_GRACE_WINDOW_MS` is how these are told apart: a re-presentation
+   * within the window of the original rotation is treated as case 1 (no
+   * escalation, matches the historical `{ kind: 'invalid' }` behavior this
+   * table's concurrency tests already assert on); anything past it is
+   * case 2. Legitimate rotation races settle well within this window even
+   * under lock contention; a real replay happens on a wholly separate,
+   * later request.
    *
    * Presenting a token that is expired but was never revoked is treated as
-   * a distinct, unrelated case (not a concurrency artifact) and still
-   * revokes every active session for that user, same as before.
+   * a distinct, unrelated case and still revokes every active session for
+   * that user, same as before.
    */
   async rotate(
     tokenHash: string,
@@ -97,10 +121,15 @@ export class RefreshTokensRepository {
       }
 
       if (existing.revokedAt) {
-        // Already used: either a genuine stale-token replay, or we lost a
-        // concurrent rotation race and the winner already committed. Do
-        // NOT escalate here — the winner's new token must survive.
-        return { kind: 'invalid' };
+        const elapsedMs = Date.now() - existing.revokedAt.getTime();
+        if (elapsedMs < REUSE_GRACE_WINDOW_MS) {
+          return { kind: 'invalid' };
+        }
+        await tokenRepo.update(
+          { familyId: existing.familyId, revokedAt: IsNull() },
+          { revokedAt: new Date() },
+        );
+        return { kind: 'reused' };
       }
 
       if (existing.expiresAt < new Date()) {
@@ -122,6 +151,7 @@ export class RefreshTokensRepository {
       await tokenRepo.save(
         tokenRepo.create({
           userId: user.id,
+          familyId: existing.familyId,
           tokenHash: newToken.tokenHash,
           expiresAt: newToken.expiresAt,
         }),

@@ -9,6 +9,7 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -34,6 +35,11 @@ import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { AuthResponseDto, UserResponseDto } from './dto/auth-response.dto';
 import { UserEntity } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { GoogleAuthCallbackGuard } from './guards/google-auth-callback.guard';
+import { GoogleProfile } from './strategies/google.strategy';
+import { GOOGLE_OAUTH_STATE_COOKIE } from './auth.constants';
+import { AppConfig } from '../../config/configuration';
 
 const REFRESH_TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -116,6 +122,30 @@ export class AuthController {
       accessToken: result.accessToken,
       user: this.toUserResponse(result.user),
     };
+  }
+
+  @Public()
+  @UseGuards(GoogleAuthGuard)
+  @Get('google')
+  @ApiOperation({ summary: 'Start Google OAuth sign-in' })
+  googleAuth(): void {
+    // Handled entirely by GoogleAuthGuard, which redirects to Google.
+  }
+
+  @Public()
+  @UseGuards(GoogleAuthCallbackGuard)
+  @Get('google/callback')
+  @ApiOperation({ summary: 'Google OAuth callback' })
+  async googleAuthCallback(
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    const profile = req.user as GoogleProfile;
+    const result = await this.authService.loginWithGoogle(profile);
+    this.setRefreshTokenCookie(res, result.refreshToken);
+    res.clearCookie(GOOGLE_OAUTH_STATE_COOKIE, { path: '/' });
+    const appConfig = this.configService.get<AppConfig>('app') as AppConfig;
+    res.redirect(`${appConfig.frontendUrl}/auth/google/callback`);
   }
 
   @Public()

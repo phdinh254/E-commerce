@@ -32,6 +32,22 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
+  async createOAuthUser(data: {
+    email: string;
+    fullName: string;
+  }): Promise<UserEntity> {
+    const user = this.usersRepository.create({
+      email: data.email.toLowerCase(),
+      passwordHash: null,
+      fullName: data.fullName,
+      role: UserRole.CUSTOMER,
+      status: UserStatus.ACTIVE,
+      // The provider (Google) has already verified this email address.
+      emailVerifiedAt: new Date(),
+    });
+    return this.usersRepository.save(user);
+  }
+
   isLoginAllowed(user: UserEntity): boolean {
     return user.status === UserStatus.ACTIVE;
   }

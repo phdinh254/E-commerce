@@ -40,6 +40,12 @@ export const envValidationSchema = Joi.object({
   FRONTEND_URL: Joi.string().uri().required(),
   APP_NAME: Joi.string().default('E-commerce'),
 
+  // Google OAuth is optional: leave all three unset/empty to disable
+  // "Sign in with Google" entirely. If any is set, all three should be.
+  GOOGLE_CLIENT_ID: Joi.string().allow('').optional(),
+  GOOGLE_CLIENT_SECRET: Joi.string().allow('').optional(),
+  GOOGLE_CALLBACK_URL: Joi.string().uri().allow('').optional(),
+
   SUPABASE_URL: Joi.string().uri().allow('').optional(),
   SUPABASE_SERVICE_ROLE_KEY: Joi.string().allow('').optional(),
   SUPABASE_STORAGE_BUCKET: Joi.string().allow('').optional(),

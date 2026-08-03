@@ -24,9 +24,13 @@ export class RefreshTokenEntity {
   @JoinColumn({ name: 'user_id' })
   user: UserEntity;
 
-  @Index({ unique: true })
-  @Column({ name: 'token_hash', type: 'varchar', length: 255, unique: true })
+  @Index('UQ_refresh_tokens_token_hash', { unique: true })
+  @Column({ name: 'token_hash', type: 'varchar', length: 255 })
   tokenHash: string;
+
+  @Index()
+  @Column({ name: 'family_id', type: 'uuid' })
+  familyId: string;
 
   @Column({ name: 'expires_at', type: 'timestamptz' })
   expiresAt: Date;

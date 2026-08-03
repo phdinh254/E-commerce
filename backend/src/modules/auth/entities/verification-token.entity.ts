@@ -29,8 +29,8 @@ export class VerificationTokenEntity {
   })
   purpose: VerificationTokenPurpose;
 
-  @Index({ unique: true })
-  @Column({ name: 'token_hash', type: 'varchar', length: 255, unique: true })
+  @Index('UQ_verification_tokens_token_hash', { unique: true })
+  @Column({ name: 'token_hash', type: 'varchar', length: 255 })
   tokenHash: string;
 
   @Column({ name: 'expires_at', type: 'timestamptz' })

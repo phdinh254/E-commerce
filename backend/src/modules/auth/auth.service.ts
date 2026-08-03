@@ -8,7 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import { AppConfig, JwtConfig } from '../../config/configuration';
 import { parseDurationToSeconds } from '../../common/utils/duration.util';
 import { UserRole } from '../../common/enums/user-role.enum';
@@ -18,13 +18,16 @@ import { UsersService } from '../users/users.service';
 import { UserEntity } from '../users/entities/user.entity';
 import { RefreshTokensRepository } from './refresh-tokens.repository';
 import { VerificationTokensRepository } from './verification-tokens.repository';
+import { OAuthIdentitiesRepository } from './oauth-identities.repository';
 import { MailService } from '../../infrastructure/mail/mail.service';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { GoogleProfile } from './strategies/google.strategy';
 import {
   EMAIL_VERIFICATION_TOKEN_TTL_HOURS,
   EMAIL_VERIFICATION_TOKEN_TTL_MS,
   PASSWORD_RESET_TOKEN_TTL_MINUTES,
   PASSWORD_RESET_TOKEN_TTL_MS,
+  GOOGLE_OAUTH_PROVIDER,
 } from './auth.constants';
 
 export interface RefreshTokenIssueResult {
@@ -53,6 +56,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly refreshTokensRepository: RefreshTokensRepository,
     private readonly verificationTokensRepository: VerificationTokensRepository,
+    private readonly oauthIdentitiesRepository: OAuthIdentitiesRepository,
     private readonly mailService: MailService,
   ) {
     this.jwtConfig = this.configService.get<JwtConfig>('jwt') as JwtConfig;
@@ -86,7 +90,7 @@ export class AuthService {
     password: string,
   ): Promise<UserEntity> {
     const user = await this.usersService.findByEmail(email.toLowerCase());
-    if (!user) {
+    if (!user || !user.passwordHash) {
       await this.simulatePasswordVerification();
       throw new UnauthorizedException({
         code: 'INVALID_CREDENTIALS',
@@ -135,6 +139,13 @@ export class AuthService {
       tokenHash: newTokenHash,
       expiresAt,
     });
+
+    if (outcome.kind === 'reused') {
+      throw new UnauthorizedException({
+        code: 'REFRESH_TOKEN_REUSED',
+        message: 'Phiên đăng nhập đã bị thu hồi vì phát hiện dùng lại token',
+      });
+    }
 
     if (outcome.kind !== 'success') {
       throw new UnauthorizedException({
@@ -195,6 +206,7 @@ export class AuthService {
 
     const entity = this.refreshTokensRepository.create({
       userId,
+      familyId: randomUUID(),
       tokenHash,
       expiresAt,
     });
@@ -332,5 +344,64 @@ export class AuthService {
 
   private hashVerificationToken(rawToken: string): string {
     return createHash('sha256').update(rawToken).digest('hex');
+  }
+
+  /**
+   * Account-linking rules, in order:
+   *  1. An `oauth_identities` row already links this Google account to a
+   *     user -> log in as that user. This is the only path that trusts a
+   *     pre-existing link; it never depends on email equality.
+   *  2. No link, and no `users` row has this email either -> create a new
+   *     CUSTOMER account (no password) and link it. Google has already
+   *     verified the email, so `emailVerifiedAt` is set immediately.
+   *  3. No link, but a `users` row with this email already exists -> this
+   *     is deliberately NOT auto-linked. Silently attaching a Google
+   *     identity to an existing password account would let anyone who
+   *     controls that Google address (which may not be the account owner,
+   *     e.g. a work email later reassigned) sign in as that account without
+   *     ever proving the password. The account owner must link Google
+   *     explicitly from an authenticated session (not implemented in this
+   *     chapter) or keep using their password.
+   */
+  async loginWithGoogle(profile: GoogleProfile): Promise<LoginResult> {
+    if (!profile.emailVerified) {
+      throw new UnauthorizedException({
+        code: 'GOOGLE_EMAIL_NOT_VERIFIED',
+        message: 'Email Google chưa được xác minh',
+      });
+    }
+
+    const existingIdentity =
+      await this.oauthIdentitiesRepository.findByProviderAccount(
+        GOOGLE_OAUTH_PROVIDER,
+        profile.googleId,
+      );
+    if (existingIdentity) {
+      return this.login(existingIdentity.user);
+    }
+
+    const existingUserByEmail = await this.usersService.findByEmail(
+      profile.email,
+    );
+    if (existingUserByEmail) {
+      throw new ConflictException({
+        code: 'GOOGLE_EMAIL_ALREADY_REGISTERED',
+        message: 'Email này đã có tài khoản. Vui lòng đăng nhập bằng mật khẩu.',
+      });
+    }
+
+    const user = await this.usersService.createOAuthUser({
+      email: profile.email,
+      fullName: profile.fullName,
+    });
+    const identity = this.oauthIdentitiesRepository.create({
+      userId: user.id,
+      provider: GOOGLE_OAUTH_PROVIDER,
+      providerAccountId: profile.googleId,
+      email: profile.email,
+    });
+    await this.oauthIdentitiesRepository.save(identity);
+
+    return this.login(user);
   }
 }

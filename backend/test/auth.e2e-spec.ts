@@ -118,6 +118,24 @@ describe('Auth (e2e)', () => {
       expect(res.status).toBe(403);
       expect(res.body.code).toBe('ACCOUNT_NOT_ACTIVE');
     });
+
+    it('allows an unverified account to log in — this repo does not gate login on email verification', async () => {
+      // Locks in the intentional Chapter 5/6 policy: emailVerifiedAt is not
+      // a login precondition (only `status === ACTIVE` is). If this ever
+      // becomes a real requirement, it must be enforced here in the
+      // backend, not just hidden in the frontend.
+      const user = await dataSource
+        .getRepository(UserEntity)
+        .findOneByOrFail({ email: 'login@example.com' });
+      expect(user.emailVerifiedAt).toBeNull();
+
+      const res = await request(server()).post('/api/v1/auth/login').send({
+        email: 'login@example.com',
+        password: 'StrongPass123!',
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.accessToken).toBeDefined();
+    });
   });
 
   describe('refresh token rotation', () => {
@@ -151,6 +169,34 @@ describe('Auth (e2e)', () => {
         .set('Cookie', cookie);
       expect(reuseRes.status).toBe(401);
       expect(reuseRes.body.code).toBe('INVALID_REFRESH_TOKEN');
+    });
+
+    it('reusing a rotated-away token after the race grace window revokes the whole token family, including the successor token', async () => {
+      // T0 -> login. Refresh with T0 to get T1 (T0 is now revoked).
+      const t0Cookie = await registerAndLogin('reuse-family@example.com');
+      const refreshRes = await request(server())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', t0Cookie);
+      expect(refreshRes.status).toBe(200);
+      const t1Cookie = refreshRes.headers['set-cookie'][0];
+
+      // Wait past the concurrency grace window so this reads as a genuine
+      // stale-token replay rather than a same-instant rotation race.
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      // Reuse T0: must be flagged as reuse and revoke the whole family.
+      const reuseRes = await request(server())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', t0Cookie);
+      expect(reuseRes.status).toBe(401);
+      expect(reuseRes.body.code).toBe('REFRESH_TOKEN_REUSED');
+
+      // T1 (the successor issued from the same family) must now also be
+      // rejected — the whole family was revoked, not just T0.
+      const t1StillWorks = await request(server())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', t1Cookie);
+      expect(t1StillWorks.status).toBe(401);
     });
 
     it('allows only one winner when the same refresh token is used concurrently, and the winner new token survives untouched', async () => {
@@ -321,6 +367,26 @@ describe('Auth (e2e)', () => {
         .post('/api/v1/auth/reset-password')
         .send({ token: 'not-a-real-token' });
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe('Google OAuth', () => {
+    // .env.test intentionally leaves GOOGLE_CLIENT_ID/SECRET unset, so these
+    // exercise the "not configured" and state-CSRF guard paths without ever
+    // making a real request to Google — the OAuth boundary itself is not
+    // something this suite calls out to.
+    it('GET /api/v1/auth/google responds 503 when Google OAuth is not configured', async () => {
+      const res = await request(server()).get('/api/v1/auth/google');
+      expect(res.status).toBe(503);
+      expect(res.body.code).toBe('GOOGLE_OAUTH_NOT_CONFIGURED');
+    });
+
+    it('GET /api/v1/auth/google/callback responds 503 when Google OAuth is not configured, even with a state param', async () => {
+      const res = await request(server()).get(
+        '/api/v1/auth/google/callback?state=whatever&code=whatever',
+      );
+      expect(res.status).toBe(503);
+      expect(res.body.code).toBe('GOOGLE_OAUTH_NOT_CONFIGURED');
     });
   });
 });

@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, ShoppingBag, UserRound } from "lucide-react";
+import { Menu, ShoppingBag } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { SearchBox } from "@/components/commerce/search-box";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { UserMenu } from "@/components/layout/user-menu";
 import { buttonVariants } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { useAuth } from "@/lib/auth/auth-provider";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -22,6 +24,35 @@ function BrandMark() {
       <span className="grid size-9 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-soft" aria-hidden="true">C</span>
       <span className="hidden text-base font-semibold tracking-[-0.02em] sm:block">Cobalt Market</span>
     </Link>
+  );
+}
+
+function MobileAccountLinks() {
+  const { user, status, logout } = useAuth();
+
+  if (status !== "authenticated" || !user) {
+    return (
+      <>
+        <Link href="/login" className="rounded-lg px-3 py-3 text-base font-medium hover:bg-muted">Đăng nhập</Link>
+        <Link href="/register" className="rounded-lg px-3 py-3 text-base font-medium hover:bg-muted">Đăng ký</Link>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Link href="/account" className="rounded-lg px-3 py-3 text-base font-medium hover:bg-muted">Tài khoản</Link>
+      {user.role === "ADMIN" ? (
+        <Link href="/admin" className="rounded-lg px-3 py-3 text-base font-medium hover:bg-muted">Khu vực quản trị</Link>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => void logout()}
+        className="rounded-lg px-3 py-3 text-left text-base font-medium text-destructive hover:bg-muted"
+      >
+        Đăng xuất
+      </button>
+    </>
   );
 }
 
@@ -42,7 +73,7 @@ export function SiteHeader() {
           <SearchBox compact className="mx-auto hidden max-w-md xl:flex" />
           <div className="ml-auto flex items-center gap-1">
             <ThemeToggle />
-            <Link href="/account" aria-label="Tài khoản" className={cn(buttonVariants({ variant: "ghost", size: "icon-lg" }), "hidden sm:inline-flex")}><UserRound aria-hidden="true" /></Link>
+            <UserMenu />
             <Link href="/cart" aria-label="Giỏ hàng, 2 sản phẩm" className={cn(buttonVariants({ variant: "ghost", size: "icon-lg" }), "relative")}>
               <ShoppingBag aria-hidden="true" />
               <span className="absolute right-0.5 top-0.5 grid size-4 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">2</span>
@@ -57,8 +88,7 @@ export function SiteHeader() {
                 <div className="px-4"><SearchBox /></div>
                 <nav className="grid gap-1 px-4" aria-label="Điều hướng di động">
                   {navigation.map((item) => <Link key={item.href} href={item.href} className="rounded-lg px-3 py-3 text-base font-medium hover:bg-muted">{item.label}</Link>)}
-                  <Link href="/account" className="rounded-lg px-3 py-3 text-base font-medium hover:bg-muted">Tài khoản</Link>
-                  <Link href="/admin" className="rounded-lg px-3 py-3 text-base font-medium hover:bg-muted">Khu vực quản trị</Link>
+                  <MobileAccountLinks />
                 </nav>
               </SheetContent>
             </Sheet>

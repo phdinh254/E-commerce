@@ -18,12 +18,17 @@ export class UserEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Index({ unique: true })
-  @Column({ type: 'varchar', length: 255, unique: true })
+  @Index('UQ_users_email', { unique: true })
+  @Column({ type: 'varchar', length: 255 })
   email: string;
 
-  @Column({ name: 'password_hash', type: 'varchar', length: 255 })
-  passwordHash: string;
+  @Column({
+    name: 'password_hash',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  passwordHash: string | null;
 
   @Column({ name: 'full_name', type: 'varchar', length: 255 })
   fullName: string;

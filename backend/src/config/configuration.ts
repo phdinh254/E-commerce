@@ -42,6 +42,21 @@ export interface CookieConfig {
   domain?: string;
 }
 
+/**
+ * `clientId`/`clientSecret` are empty strings when Google OAuth has not
+ * been configured for this environment. Callers must check
+ * `isConfigured` before starting the OAuth flow — passport-google-oauth20
+ * requires non-empty strings just to construct the strategy, so the
+ * module always registers it with a placeholder value and gates actual
+ * use behind this flag instead of conditionally registering the module.
+ */
+export interface GoogleOAuthConfig {
+  clientId: string;
+  clientSecret: string;
+  callbackUrl: string;
+  isConfigured: boolean;
+}
+
 export interface MailConfig {
   host: string;
   port: number;
@@ -118,6 +133,14 @@ export default () => ({
     secure: process.env.COOKIE_SECURE === 'true',
     domain: process.env.COOKIE_DOMAIN || undefined,
   } as CookieConfig,
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID ?? '',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+    callbackUrl: process.env.GOOGLE_CALLBACK_URL ?? '',
+    isConfigured: Boolean(
+      process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
+    ),
+  },
   mail: {
     host: process.env.SMTP_HOST as string,
     port: parseInt(process.env.SMTP_PORT ?? '1025', 10),

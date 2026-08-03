@@ -27,17 +27,17 @@ describe('UserEntity metadata', () => {
     expect(idColumn.options.type).toBe('uuid');
   });
 
-  it('enforces a unique email column', () => {
+  it('has a varchar email column', () => {
     const emailColumn = column('email');
-    expect(emailColumn.options.unique).toBe(true);
     expect(emailColumn.options.type).toBe('varchar');
   });
 
-  it('has a unique index backing email lookups', () => {
+  it('enforces email uniqueness via a named unique index matching the original migration', () => {
     const emailIndex = indices.find(
       (i) => i.columns?.length === 1 && i.columns[0] === 'email',
     );
     expect(emailIndex?.unique).toBe(true);
+    expect(emailIndex?.name).toBe('UQ_users_email');
   });
 
   it('stores the password only as a hash column, never plaintext', () => {

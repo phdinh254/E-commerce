@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AuthForm } from "./auth-form";
 import { authApi } from "@/lib/api/auth";
+import { AuthProvider } from "@/lib/auth/auth-provider";
+import { apiClient } from "@/lib/api/client";
 
 const push = vi.fn();
 let searchParams = new URLSearchParams();
@@ -27,10 +29,21 @@ vi.mock("@/lib/api/auth", () => ({
   },
 }));
 
+vi.mock("@/lib/api/client", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api/client")>("@/lib/api/client");
+  return { ...actual, apiClient: { ...actual.apiClient, post: vi.fn() } };
+});
+
 function renderWithProviders(ui: React.ReactElement) {
+  // AuthProvider's mount-time silent refresh has no session to restore in
+  // these tests; reject it so it settles as unauthenticated instead of
+  // hanging pending.
+  vi.mocked(apiClient.post).mockRejectedValue(new Error("no session"));
   const queryClient = new QueryClient();
   return render(
-    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>{ui}</AuthProvider>
+    </QueryClientProvider>,
   );
 }
 

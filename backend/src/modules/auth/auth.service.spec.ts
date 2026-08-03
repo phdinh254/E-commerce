@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { RefreshTokensRepository } from './refresh-tokens.repository';
 import { VerificationTokensRepository } from './verification-tokens.repository';
+import { OAuthIdentitiesRepository } from './oauth-identities.repository';
 import { VerificationTokenPurpose } from '../../common/enums/verification-token-purpose.enum';
 import { UsersService } from '../users/users.service';
 import { MailService } from '../../infrastructure/mail/mail.service';
@@ -33,7 +34,11 @@ describe('AuthService — email verification & password reset', () => {
   let usersService: jest.Mocked<
     Pick<
       UsersService,
-      'findByEmail' | 'findById' | 'markEmailVerified' | 'updatePasswordHash'
+      | 'findByEmail'
+      | 'findById'
+      | 'markEmailVerified'
+      | 'updatePasswordHash'
+      | 'createOAuthUser'
     >
   >;
   let mailService: jest.Mocked<
@@ -43,7 +48,11 @@ describe('AuthService — email verification & password reset', () => {
     Pick<VerificationTokensRepository, 'create' | 'save' | 'consume'>
   >;
   let refreshTokensRepository: jest.Mocked<
-    Pick<RefreshTokensRepository, 'revokeAllForUser'>
+    Pick<RefreshTokensRepository, 'revokeAllForUser' | 'create' | 'save'>
+  >;
+  let jwtService: jest.Mocked<Pick<JwtService, 'sign'>>;
+  let oauthIdentitiesRepository: jest.Mocked<
+    Pick<OAuthIdentitiesRepository, 'findByProviderAccount' | 'create' | 'save'>
   >;
   let configService: ConfigService;
   let service: AuthService;
@@ -54,6 +63,7 @@ describe('AuthService — email verification & password reset', () => {
       findById: jest.fn(),
       markEmailVerified: jest.fn(),
       updatePasswordHash: jest.fn(),
+      createOAuthUser: jest.fn(),
     };
     mailService = {
       sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
@@ -68,7 +78,24 @@ describe('AuthService — email verification & password reset', () => {
     >;
     refreshTokensRepository = {
       revokeAllForUser: jest.fn().mockResolvedValue(undefined),
+      create: jest.fn((data: unknown) => data),
+      save: jest.fn().mockResolvedValue(undefined),
+    } as unknown as jest.Mocked<
+      Pick<RefreshTokensRepository, 'revokeAllForUser' | 'create' | 'save'>
+    >;
+    jwtService = {
+      sign: jest.fn().mockReturnValue('signed-access-token'),
     };
+    oauthIdentitiesRepository = {
+      findByProviderAccount: jest.fn(),
+      create: jest.fn((data: unknown) => data),
+      save: jest.fn().mockResolvedValue(undefined),
+    } as unknown as jest.Mocked<
+      Pick<
+        OAuthIdentitiesRepository,
+        'findByProviderAccount' | 'create' | 'save'
+      >
+    >;
     configService = {
       get: jest.fn((key: string) => {
         if (key === 'jwt') {
@@ -91,10 +118,11 @@ describe('AuthService — email verification & password reset', () => {
 
     service = new AuthService(
       usersService as unknown as UsersService,
-      {} as JwtService,
+      jwtService as unknown as JwtService,
       configService,
       refreshTokensRepository as unknown as RefreshTokensRepository,
       verificationTokensRepository as unknown as VerificationTokensRepository,
+      oauthIdentitiesRepository as unknown as OAuthIdentitiesRepository,
       mailService as unknown as MailService,
     );
   });
@@ -202,6 +230,79 @@ describe('AuthService — email verification & password reset', () => {
         service.resetPassword('raw-token', 'NewStrongPass123!'),
       ).rejects.toBeInstanceOf(UnauthorizedException);
       expect(usersService.updatePasswordHash).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('loginWithGoogle', () => {
+    const googleProfile = {
+      googleId: 'google-sub-123',
+      email: 'newperson@example.com',
+      emailVerified: true,
+      fullName: 'New Person',
+    };
+
+    it('rejects a Google profile whose email is not verified', async () => {
+      await expect(
+        service.loginWithGoogle({ ...googleProfile, emailVerified: false }),
+      ).rejects.toMatchObject({
+        response: { code: 'GOOGLE_EMAIL_NOT_VERIFIED' },
+      });
+      expect(
+        oauthIdentitiesRepository.findByProviderAccount,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('logs in as the already-linked user without creating anything new', async () => {
+      const linkedUser = buildUser({ id: 'user-linked' });
+      oauthIdentitiesRepository.findByProviderAccount.mockResolvedValue({
+        id: 'identity-1',
+        userId: linkedUser.id,
+        user: linkedUser,
+        provider: 'google',
+        providerAccountId: googleProfile.googleId,
+        email: googleProfile.email,
+        createdAt: new Date(),
+      });
+
+      const result = await service.loginWithGoogle(googleProfile);
+
+      expect(result.user.id).toBe(linkedUser.id);
+      expect(usersService.createOAuthUser).not.toHaveBeenCalled();
+    });
+
+    it('creates a new CUSTOMER account and links it when no user has this email', async () => {
+      oauthIdentitiesRepository.findByProviderAccount.mockResolvedValue(null);
+      usersService.findByEmail.mockResolvedValue(null);
+      const newUser = buildUser({
+        id: 'user-new',
+        email: googleProfile.email,
+        passwordHash: null,
+        emailVerifiedAt: new Date(),
+      });
+      usersService.createOAuthUser.mockResolvedValue(newUser);
+
+      const result = await service.loginWithGoogle(googleProfile);
+
+      expect(usersService.createOAuthUser).toHaveBeenCalledWith({
+        email: googleProfile.email,
+        fullName: googleProfile.fullName,
+      });
+      expect(oauthIdentitiesRepository.save).toHaveBeenCalledTimes(1);
+      expect(result.user.id).toBe(newUser.id);
+    });
+
+    it('rejects (does not auto-link) when the Google email already belongs to a password account', async () => {
+      oauthIdentitiesRepository.findByProviderAccount.mockResolvedValue(null);
+      usersService.findByEmail.mockResolvedValue(
+        buildUser({ email: googleProfile.email }),
+      );
+
+      await expect(
+        service.loginWithGoogle(googleProfile),
+      ).rejects.toMatchObject({
+        response: { code: 'GOOGLE_EMAIL_ALREADY_REGISTERED' },
+      });
+      expect(usersService.createOAuthUser).not.toHaveBeenCalled();
     });
   });
 });
