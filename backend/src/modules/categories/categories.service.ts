@@ -91,6 +91,23 @@ export class CategoriesService {
     return this.toResponse(category);
   }
 
+  /**
+   * Minimal, read-only projection for other modules (e.g. Products) to
+   * validate a categoryId and embed a category summary — without exposing
+   * CategoriesRepository or full CategoryEntity internals across module
+   * boundaries. Deliberately does not filter by isActive: a category being
+   * inactive does not make it "not found" for this purpose (a product may
+   * legitimately reference an inactive category); a soft-deleted category
+   * does return null here, matching every other lookup in this service.
+   */
+  async findRef(
+    id: string,
+  ): Promise<{ id: string; name: string; slug: string } | null> {
+    const category = await this.categoriesRepository.findById(id);
+    if (!category) return null;
+    return { id: category.id, name: category.name, slug: category.slug };
+  }
+
   async update(
     id: string,
     dto: UpdateCategoryDto,
