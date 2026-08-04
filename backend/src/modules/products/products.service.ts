@@ -251,6 +251,27 @@ export class ProductsService {
     }
   }
 
+  /**
+   * For same-module sub-resources (options/variants/attributes — Chapter
+   * 10): the product must exist and not be soft-deleted, but may be
+   * inactive (an admin configures variants before flipping a product
+   * live). Returns the raw entity — acceptable for same-module reuse,
+   * unlike CategoriesService.findRef()'s projection, which crosses a
+   * module boundary.
+   */
+  async getManageableOrThrow(id: string): Promise<ProductEntity> {
+    return this.getExistingOrThrow(id);
+  }
+
+  /** For public sub-resource reads: the product must be active and not deleted. */
+  async getPublicOrThrow(id: string): Promise<ProductEntity> {
+    const product = await this.productsRepository.findById(id);
+    if (!product || !product.isActive) {
+      throw this.notFound();
+    }
+    return product;
+  }
+
   private async getExistingOrThrow(id: string): Promise<ProductEntity> {
     const product = await this.productsRepository.findById(id);
     if (!product) {
