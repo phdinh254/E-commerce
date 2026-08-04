@@ -8,6 +8,7 @@ import { ProductsService } from './products.service';
 import { ProductsRepository } from './products.repository';
 import { ProductEntity } from './entities/product.entity';
 import { CategoriesService } from '../categories/categories.service';
+import { ProductsCacheService } from './cache/products-cache.service';
 
 function buildProduct(overrides: Partial<ProductEntity> = {}): ProductEntity {
   return {
@@ -54,6 +55,19 @@ describe('ProductsService', () => {
     >
   >;
   let categoriesService: jest.Mocked<Pick<CategoriesService, 'findRef'>>;
+  let cacheService: jest.Mocked<
+    Pick<
+      ProductsCacheService,
+      | 'buildSearchKey'
+      | 'getSearch'
+      | 'setSearch'
+      | 'buildFeaturedKey'
+      | 'getFeatured'
+      | 'setFeatured'
+      | 'invalidateSearch'
+      | 'invalidateFeatured'
+    >
+  >;
   let service: ProductsService;
 
   beforeEach(() => {
@@ -68,9 +82,20 @@ describe('ProductsService', () => {
       softDelete: jest.fn(),
     };
     categoriesService = { findRef: jest.fn() };
+    cacheService = {
+      buildSearchKey: jest.fn().mockResolvedValue('search-key'),
+      getSearch: jest.fn().mockResolvedValue(null),
+      setSearch: jest.fn().mockResolvedValue(undefined),
+      buildFeaturedKey: jest.fn().mockResolvedValue('featured-key'),
+      getFeatured: jest.fn().mockResolvedValue(null),
+      setFeatured: jest.fn().mockResolvedValue(undefined),
+      invalidateSearch: jest.fn().mockResolvedValue(undefined),
+      invalidateFeatured: jest.fn().mockResolvedValue(undefined),
+    };
     service = new ProductsService(
       repository as unknown as ProductsRepository,
       categoriesService as unknown as CategoriesService,
+      cacheService as unknown as ProductsCacheService,
     );
   });
 
@@ -279,6 +304,140 @@ describe('ProductsService', () => {
           category: CATEGORY_REF,
         },
       ]);
+    });
+  });
+
+  describe('search cache', () => {
+    it('returns the cached result without querying the repository on a cache hit', async () => {
+      const cached = {
+        items: [],
+        meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+      };
+      cacheService.getSearch.mockResolvedValue(cached);
+
+      const result = await service.findAllActive({
+        page: 1,
+        limit: 20,
+        sortOrder: 'DESC',
+      } as never);
+
+      expect(result).toBe(cached);
+      expect(repository.findMany).not.toHaveBeenCalled();
+    });
+
+    it('queries the repository and populates the cache on a miss', async () => {
+      cacheService.getSearch.mockResolvedValue(null);
+      repository.findMany.mockResolvedValue([[], 0]);
+
+      await service.findAllActive({
+        page: 1,
+        limit: 20,
+        sortOrder: 'DESC',
+      } as never);
+
+      expect(repository.findMany).toHaveBeenCalled();
+      expect(cacheService.setSearch).toHaveBeenCalledWith(
+        'search-key',
+        expect.objectContaining({
+          meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+        }),
+      );
+    });
+  });
+
+  describe('featured cache', () => {
+    it('returns the cached result without querying the repository on a cache hit', async () => {
+      const cached = [{ id: 'prod-1' }] as never;
+      cacheService.getFeatured.mockResolvedValue(cached);
+
+      const result = await service.findFeatured({ limit: 8 });
+
+      expect(result).toBe(cached);
+      expect(repository.findFeatured).not.toHaveBeenCalled();
+    });
+
+    it('queries the repository and populates the cache on a miss', async () => {
+      cacheService.getFeatured.mockResolvedValue(null);
+      repository.findFeatured.mockResolvedValue([]);
+
+      await service.findFeatured({ limit: 8 });
+
+      expect(repository.findFeatured).toHaveBeenCalled();
+      expect(cacheService.setFeatured).toHaveBeenCalledWith('featured-key', []);
+    });
+  });
+
+  describe('cache invalidation', () => {
+    it('create() always invalidates search, and invalidates featured only when created featured', async () => {
+      categoriesService.findRef.mockResolvedValue(CATEGORY_REF);
+      repository.save.mockImplementation((entity) =>
+        Promise.resolve(buildProduct(entity)),
+      );
+
+      await service.create({
+        name: 'Không nổi bật',
+        sku: 'SKU-A',
+        price: 1000,
+        categoryId: 'cat-1',
+      });
+      expect(cacheService.invalidateSearch).toHaveBeenCalledTimes(1);
+      expect(cacheService.invalidateFeatured).not.toHaveBeenCalled();
+
+      await service.create({
+        name: 'Nổi bật',
+        sku: 'SKU-B',
+        price: 1000,
+        categoryId: 'cat-1',
+        isFeatured: true,
+      });
+      expect(cacheService.invalidateSearch).toHaveBeenCalledTimes(2);
+      expect(cacheService.invalidateFeatured).toHaveBeenCalledTimes(1);
+    });
+
+    it('update() invalidates featured when isFeatured is toggled on', async () => {
+      repository.findById.mockResolvedValue(
+        buildProduct({ isFeatured: false }),
+      );
+      repository.save.mockImplementation((entity) => Promise.resolve(entity));
+
+      await service.update('prod-1', { isFeatured: true });
+      expect(cacheService.invalidateSearch).toHaveBeenCalledTimes(1);
+      expect(cacheService.invalidateFeatured).toHaveBeenCalledTimes(1);
+    });
+
+    it('update() invalidates featured when a displayed field of an already-featured product changes', async () => {
+      repository.findById.mockResolvedValue(buildProduct({ isFeatured: true }));
+      repository.save.mockImplementation((entity) => Promise.resolve(entity));
+
+      await service.update('prod-1', { price: 50000 });
+      expect(cacheService.invalidateFeatured).toHaveBeenCalledTimes(1);
+    });
+
+    it('update() does not invalidate featured when a non-featured product has a non-display field changed', async () => {
+      repository.findById.mockResolvedValue(
+        buildProduct({ isFeatured: false }),
+      );
+      repository.save.mockImplementation((entity) => Promise.resolve(entity));
+
+      await service.update('prod-1', { description: 'mô tả mới' });
+      expect(cacheService.invalidateSearch).toHaveBeenCalledTimes(1);
+      expect(cacheService.invalidateFeatured).not.toHaveBeenCalled();
+    });
+
+    it('remove() invalidates featured only when the deleted product was featured', async () => {
+      repository.findById.mockResolvedValue(buildProduct({ isFeatured: true }));
+      await service.remove('prod-1');
+      expect(cacheService.invalidateSearch).toHaveBeenCalledTimes(1);
+      expect(cacheService.invalidateFeatured).toHaveBeenCalledTimes(1);
+    });
+
+    it('remove() does not invalidate featured for a non-featured product', async () => {
+      repository.findById.mockResolvedValue(
+        buildProduct({ isFeatured: false }),
+      );
+      await service.remove('prod-1');
+      expect(cacheService.invalidateSearch).toHaveBeenCalledTimes(1);
+      expect(cacheService.invalidateFeatured).not.toHaveBeenCalled();
     });
   });
 });

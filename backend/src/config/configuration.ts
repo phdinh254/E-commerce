@@ -78,6 +78,17 @@ export interface LoggerConfig {
   level: LogLevel;
 }
 
+/**
+ * Featured is read far more often relative to how rarely it changes than
+ * search is, so it gets a longer TTL — see docs/product-search-cache.md.
+ * Both are eventual-consistency-only backstops: the real invalidation path
+ * is the generation bump in ProductsCacheService, not TTL expiry.
+ */
+export interface ProductCacheConfig {
+  searchTtlSeconds: number;
+  featuredTtlSeconds: number;
+}
+
 function defaultLogLevel(nodeEnv: string): LogLevel {
   if (nodeEnv === 'production') return 'info';
   if (nodeEnv === 'test') return 'silent';
@@ -157,5 +168,15 @@ export default () => ({
     level:
       (process.env.LOG_LEVEL as LogLevel | undefined) ??
       defaultLogLevel(process.env.NODE_ENV ?? 'development'),
+  },
+  productCache: {
+    searchTtlSeconds: parseInt(
+      process.env.PRODUCT_SEARCH_CACHE_TTL_SECONDS ?? '60',
+      10,
+    ),
+    featuredTtlSeconds: parseInt(
+      process.env.PRODUCT_FEATURED_CACHE_TTL_SECONDS ?? '300',
+      10,
+    ),
   },
 });

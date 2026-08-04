@@ -19,14 +19,27 @@ import {
 } from './dto/product-response.dto';
 import { slugify } from '../../common/utils/slug.util';
 import { CategoriesService } from '../categories/categories.service';
+import { ProductsCacheService } from './cache/products-cache.service';
 
 const POSTGRES_UNIQUE_VIOLATION = '23505';
+
+/** Fields that, if changed, could change what a cached featured-list entry
+ * displays — used to decide whether an update needs to bump the featured
+ * cache generation for an already-featured product. */
+const FEATURED_DISPLAY_FIELDS = [
+  'name',
+  'slug',
+  'price',
+  'thumbnailUrl',
+  'shortDescription',
+] as const;
 
 @Injectable()
 export class ProductsService {
   constructor(
     private readonly productsRepository: ProductsRepository,
     private readonly categoriesService: CategoriesService,
+    private readonly productsCacheService: ProductsCacheService,
   ) {}
 
   async create(dto: CreateProductDto): Promise<ProductResponseDto> {
@@ -57,12 +70,34 @@ export class ProductsService {
     });
 
     const saved = await this.saveOrThrowOnDuplicate(entity);
+
+    // Invalidation runs only after the write has committed — never before,
+    // so a rolled-back/failed write can never invalidate a cache that still
+    // correctly reflects the (unchanged) database.
+    await this.productsCacheService.invalidateSearch();
+    if (saved.isFeatured) {
+      await this.productsCacheService.invalidateFeatured();
+    }
+
     return this.toResponse(saved, category);
   }
 
   async findAllActive(
     query: QueryProductDto,
   ): Promise<PaginatedProductResponseDto> {
+    const cacheKey = await this.productsCacheService.buildSearchKey({
+      search: query.search,
+      page: query.page,
+      limit: query.limit,
+      categoryId: query.categoryId,
+      sortBy: query.sortBy,
+      sortOrder: query.sortOrder,
+    });
+    const cached = await this.productsCacheService.getSearch(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const [items, total] = await this.productsRepository.findMany({
       page: query.page,
       limit: query.limit,
@@ -74,7 +109,7 @@ export class ProductsService {
     });
 
     const responses = await this.toResponseList(items);
-    return {
+    const result: PaginatedProductResponseDto = {
       items: responses,
       meta: {
         page: query.page,
@@ -83,6 +118,9 @@ export class ProductsService {
         totalPages: Math.ceil(total / query.limit),
       },
     };
+
+    await this.productsCacheService.setSearch(cacheKey, result);
+    return result;
   }
 
   async findActiveById(id: string): Promise<ProductResponseDto> {
@@ -112,9 +150,17 @@ export class ProductsService {
   async findFeatured(
     query: FeaturedQueryDto,
   ): Promise<FeaturedProductResponseDto[]> {
+    const cacheKey = await this.productsCacheService.buildFeaturedKey(
+      query.limit,
+    );
+    const cached = await this.productsCacheService.getFeatured(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const items = await this.productsRepository.findFeatured(query.limit);
     const responses = await this.toResponseList(items);
-    return responses.map((item) => ({
+    const result = responses.map((item) => ({
       id: item.id,
       name: item.name,
       slug: item.slug,
@@ -123,10 +169,14 @@ export class ProductsService {
       shortDescription: item.shortDescription,
       category: item.category,
     }));
+
+    await this.productsCacheService.setFeatured(cacheKey, result);
+    return result;
   }
 
   async update(id: string, dto: UpdateProductDto): Promise<ProductResponseDto> {
     const product = await this.getExistingOrThrow(id);
+    const wasFeatured = product.isFeatured;
 
     if (dto.name !== undefined) {
       product.name = dto.name.trim();
@@ -172,14 +222,33 @@ export class ProductsService {
     }
 
     const saved = await this.saveOrThrowOnDuplicate(product);
+
+    // Runs only after the write has committed (see create()).
+    await this.productsCacheService.invalidateSearch();
+    const featuredDisplayChanged = FEATURED_DISPLAY_FIELDS.some(
+      (field) => dto[field] !== undefined,
+    );
+    if (
+      wasFeatured !== saved.isFeatured ||
+      (saved.isFeatured && featuredDisplayChanged)
+    ) {
+      await this.productsCacheService.invalidateFeatured();
+    }
+
     return category
       ? this.toResponse(saved, category)
       : this.toResponseWithCategoryLookup(saved);
   }
 
   async remove(id: string): Promise<void> {
-    await this.getExistingOrThrow(id);
+    const product = await this.getExistingOrThrow(id);
     await this.productsRepository.softDelete(id);
+
+    // Runs only after the write has committed (see create()).
+    await this.productsCacheService.invalidateSearch();
+    if (product.isFeatured) {
+      await this.productsCacheService.invalidateFeatured();
+    }
   }
 
   private async getExistingOrThrow(id: string): Promise<ProductEntity> {

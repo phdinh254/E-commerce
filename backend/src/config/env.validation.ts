@@ -50,6 +50,12 @@ export const envValidationSchema = Joi.object({
   SUPABASE_SERVICE_ROLE_KEY: Joi.string().allow('').optional(),
   SUPABASE_STORAGE_BUCKET: Joi.string().allow('').optional(),
 
+  PRODUCT_SEARCH_CACHE_TTL_SECONDS: Joi.number().integer().min(1).default(60),
+  PRODUCT_FEATURED_CACHE_TTL_SECONDS: Joi.number()
+    .integer()
+    .min(1)
+    .default(300),
+
   LOG_LEVEL: Joi.string()
     .valid('fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent')
     .when('NODE_ENV', {

@@ -188,7 +188,12 @@ describe('Products (e2e)', () => {
       const res = await request(server())
         .post('/api/v1/products')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Sản phẩm B', sku: sku.toLowerCase(), price: 2000, categoryId });
+        .send({
+          name: 'Sản phẩm B',
+          sku: sku.toLowerCase(),
+          price: 2000,
+          categoryId,
+        });
 
       expect(res.status).toBe(409);
     });
@@ -276,7 +281,12 @@ describe('Products (e2e)', () => {
       await request(server())
         .post('/api/v1/products')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Giày thể thao', sku: nextSku(), price: 500000, categoryId });
+        .send({
+          name: 'Giày thể thao',
+          sku: nextSku(),
+          price: 500000,
+          categoryId,
+        });
 
       const res = await request(server()).get(
         '/api/v1/products/slug/giay-the-thao',
@@ -399,7 +409,12 @@ describe('Products (e2e)', () => {
       await request(server())
         .post('/api/v1/products')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Điện thoại Samsung', sku: nextSku(), price: 1000, categoryId });
+        .send({
+          name: 'Điện thoại Samsung',
+          sku: nextSku(),
+          price: 1000,
+          categoryId,
+        });
       await request(server())
         .post('/api/v1/products')
         .set('Authorization', `Bearer ${token}`)
@@ -452,11 +467,21 @@ describe('Products (e2e)', () => {
       await request(server())
         .post('/api/v1/products')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Trong A', sku: nextSku(), price: 1000, categoryId: categoryA });
+        .send({
+          name: 'Trong A',
+          sku: nextSku(),
+          price: 1000,
+          categoryId: categoryA,
+        });
       await request(server())
         .post('/api/v1/products')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Trong B', sku: nextSku(), price: 1000, categoryId: categoryB });
+        .send({
+          name: 'Trong B',
+          sku: nextSku(),
+          price: 1000,
+          categoryId: categoryB,
+        });
 
       const res = await request(server())
         .get('/api/v1/products')
@@ -497,11 +522,21 @@ describe('Products (e2e)', () => {
       await request(server())
         .post('/api/v1/products')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Giảm 50% hôm nay', sku: nextSku(), price: 1000, categoryId });
+        .send({
+          name: 'Giảm 50% hôm nay',
+          sku: nextSku(),
+          price: 1000,
+          categoryId,
+        });
       await request(server())
         .post('/api/v1/products')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Không liên quan', sku: nextSku(), price: 1000, categoryId });
+        .send({
+          name: 'Không liên quan',
+          sku: nextSku(),
+          price: 1000,
+          categoryId,
+        });
 
       const res = await request(server())
         .get('/api/v1/products')
@@ -540,7 +575,8 @@ describe('Products (e2e)', () => {
         .get('/api/v1/products/suggestions')
         .query({ q: 'Áo' });
       expect(res.status).toBe(200);
-      expect(res.body.data.sort()).toEqual(['Áo thun nam', 'Áo thun nữ']);
+      const suggestions = res.body.data as string[];
+      expect([...suggestions].sort()).toEqual(['Áo thun nam', 'Áo thun nữ']);
     });
 
     it('rejects a query shorter than the minimum length (400)', async () => {
@@ -621,7 +657,12 @@ describe('Products (e2e)', () => {
       await request(server())
         .post('/api/v1/products')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Không nổi bật', sku: nextSku(), price: 1000, categoryId });
+        .send({
+          name: 'Không nổi bật',
+          sku: nextSku(),
+          price: 1000,
+          categoryId,
+        });
 
       const res = await request(server()).get('/api/v1/products/featured');
       expect(res.status).toBe(200);
@@ -687,7 +728,8 @@ describe('Products (e2e)', () => {
         .set('Authorization', `Bearer ${token}`);
 
       const res = await request(server()).get('/api/v1/products/featured');
-      const ids = res.body.map((p: { id: string }) => p.id);
+      const featured = res.body as Array<{ id: string }>;
+      const ids = featured.map((p) => p.id);
       expect(ids).not.toContain(inactive.body.id);
       expect(ids).not.toContain(deleted.body.id);
     });
@@ -756,7 +798,12 @@ describe('Products (e2e)', () => {
       const created = await request(server())
         .post('/api/v1/products')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Đổi danh mục', sku: nextSku(), price: 1000, categoryId: categoryA });
+        .send({
+          name: 'Đổi danh mục',
+          sku: nextSku(),
+          price: 1000,
+          categoryId: categoryA,
+        });
 
       const res = await request(server())
         .patch(`/api/v1/products/${created.body.id}`)
@@ -865,7 +912,12 @@ describe('Products (e2e)', () => {
       const created = await request(server())
         .post('/api/v1/products')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Kiểm tra deleted_at', sku: nextSku(), price: 1000, categoryId });
+        .send({
+          name: 'Kiểm tra deleted_at',
+          sku: nextSku(),
+          price: 1000,
+          categoryId,
+        });
       await request(server())
         .delete(`/api/v1/products/${created.body.id}`)
         .set('Authorization', `Bearer ${token}`);
@@ -913,9 +965,8 @@ describe('Products (e2e)', () => {
         .set('Authorization', `Bearer ${token}`);
 
       const res = await request(server()).get('/api/v1/products/featured');
-      expect(
-        res.body.find((p: { id: string }) => p.id === created.body.id),
-      ).toBeUndefined();
+      const featured = res.body as Array<{ id: string }>;
+      expect(featured.find((p) => p.id === created.body.id)).toBeUndefined();
     });
 
     it('repeated deletion returns 404', async () => {
@@ -956,7 +1007,12 @@ describe('Products (e2e)', () => {
       const created = await request(server())
         .post('/api/v1/products')
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Bảo vệ guest', sku: nextSku(), price: 1000, categoryId });
+        .send({
+          name: 'Bảo vệ guest',
+          sku: nextSku(),
+          price: 1000,
+          categoryId,
+        });
 
       const res = await request(server()).delete(
         `/api/v1/products/${created.body.id}`,
