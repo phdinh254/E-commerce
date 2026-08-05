@@ -25,7 +25,11 @@
     "migration:run": "pnpm typeorm migration:run",
     "migration:revert": "pnpm typeorm migration:revert",
     "migration:show": "pnpm typeorm migration:show",
-    "seed:admin": "ts-node -r tsconfig-paths/register src/database/seeds/admin.seed.ts"
+    "seed:admin": "ts-node -r tsconfig-paths/register src/database/seeds/admin.seed.ts",
+    "seed": "ts-node -r tsconfig-paths/register src/database/seeds/seed.ts",
+    "seed:validate": "ts-node -r tsconfig-paths/register src/database/seeds/seed.ts --validate-only",
+    "db:reset": "ts-node -r tsconfig-paths/register src/database/seeds/reset.ts",
+    "db:reset:seed": "ts-node -r tsconfig-paths/register src/database/seeds/reset.ts --then-seed"
   },
   "dependencies": {
     "@nest-lab/throttler-storage-redis": "^1.2.0",
