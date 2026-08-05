@@ -85,6 +85,17 @@ export class ProductsService {
   async findAllActive(
     query: QueryProductDto,
   ): Promise<PaginatedProductResponseDto> {
+    if (
+      query.minPrice !== undefined &&
+      query.maxPrice !== undefined &&
+      query.minPrice > query.maxPrice
+    ) {
+      throw new BadRequestException({
+        code: 'INVALID_PRICE_RANGE',
+        message: 'minPrice không được lớn hơn maxPrice',
+      });
+    }
+
     const cacheKey = await this.productsCacheService.buildSearchKey({
       search: query.search,
       page: query.page,
@@ -92,6 +103,8 @@ export class ProductsService {
       categoryId: query.categoryId,
       sortBy: query.sortBy,
       sortOrder: query.sortOrder,
+      minPrice: query.minPrice,
+      maxPrice: query.maxPrice,
     });
     const cached = await this.productsCacheService.getSearch(cacheKey);
     if (cached) {
@@ -106,6 +119,8 @@ export class ProductsService {
       activeOnly: true,
       sortBy: query.sortBy,
       sortOrder: query.sortOrder,
+      minPrice: query.minPrice,
+      maxPrice: query.maxPrice,
     });
 
     const responses = await this.toResponseList(items);

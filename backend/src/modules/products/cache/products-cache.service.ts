@@ -27,6 +27,8 @@ export interface SearchCacheKeyParams {
   categoryId?: string;
   sortBy?: string;
   sortOrder: 'ASC' | 'DESC';
+  minPrice?: number;
+  maxPrice?: number;
 }
 
 /**
@@ -74,6 +76,8 @@ export class ProductsCacheService {
       categoryId: params.categoryId ?? '',
       sortBy: params.sortBy ?? '',
       sortOrder: params.sortOrder,
+      minPrice: params.minPrice ?? '',
+      maxPrice: params.maxPrice ?? '',
     });
     return `${PRODUCT_SEARCH_CACHE_PREFIX}${generation}:${digest}`;
   }

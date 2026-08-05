@@ -403,6 +403,47 @@ describe('Products (e2e)', () => {
       expect(res.status).toBe(400);
     });
 
+    it('filters by minPrice and maxPrice (inclusive)', async () => {
+      const token = await getAdminToken();
+      const categoryId = await createCategory(token);
+      const prices = [50_000, 150_000, 250_000, 350_000];
+      for (const price of prices) {
+        await request(server())
+          .post('/api/v1/products')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ name: `Giá ${price}`, sku: nextSku(), price, categoryId });
+      }
+
+      const res = await request(server())
+        .get('/api/v1/products')
+        .query({ categoryId, minPrice: 150_000, maxPrice: 250_000 });
+      const returnedPrices = (res.body.items as { price: number }[])
+        .map((item) => item.price)
+        .sort((a, b) => a - b);
+      expect(returnedPrices).toEqual([150_000, 250_000]);
+    });
+
+    it('rejects minPrice greater than maxPrice (400)', async () => {
+      const res = await request(server())
+        .get('/api/v1/products')
+        .query({ minPrice: 500_000, maxPrice: 100_000 });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects a negative minPrice (400)', async () => {
+      const res = await request(server())
+        .get('/api/v1/products')
+        .query({ minPrice: -1 });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects a non-integer maxPrice (400)', async () => {
+      const res = await request(server())
+        .get('/api/v1/products')
+        .query({ maxPrice: 'not-a-number' });
+      expect(res.status).toBe(400);
+    });
+
     it('searches by name (case-insensitive, Vietnamese diacritics preserved)', async () => {
       const token = await getAdminToken();
       const categoryId = await createCategory(token);

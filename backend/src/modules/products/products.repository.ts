@@ -13,6 +13,8 @@ export interface ProductListFilters {
   activeOnly: boolean;
   sortBy?: ProductSortField;
   sortOrder: 'ASC' | 'DESC';
+  minPrice?: number;
+  maxPrice?: number;
 }
 
 const SORT_COLUMN_MAP: Partial<Record<ProductSortField, string>> = {
@@ -60,6 +62,12 @@ export class ProductsRepository {
       qb.andWhere('product.category_id = :categoryId', {
         categoryId: filters.categoryId,
       });
+    }
+    if (filters.minPrice !== undefined) {
+      qb.andWhere('product.price >= :minPrice', { minPrice: filters.minPrice });
+    }
+    if (filters.maxPrice !== undefined) {
+      qb.andWhere('product.price <= :maxPrice', { maxPrice: filters.maxPrice });
     }
 
     let effectiveSortBy = filters.sortBy;

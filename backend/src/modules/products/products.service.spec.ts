@@ -275,6 +275,48 @@ describe('ProductsService', () => {
       });
       expect(result.items).toHaveLength(2);
     });
+
+    it('passes minPrice/maxPrice through to the repository', async () => {
+      repository.findMany.mockResolvedValue([[], 0]);
+
+      await service.findAllActive({
+        page: 1,
+        limit: 20,
+        sortOrder: 'DESC',
+        minPrice: 100000,
+        maxPrice: 500000,
+      } as never);
+
+      expect(repository.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ minPrice: 100000, maxPrice: 500000 }),
+      );
+    });
+
+    it('rejects minPrice greater than maxPrice (400) without querying the repository', async () => {
+      await expect(
+        service.findAllActive({
+          page: 1,
+          limit: 20,
+          sortOrder: 'DESC',
+          minPrice: 500000,
+          maxPrice: 100000,
+        } as never),
+      ).rejects.toThrow(BadRequestException);
+      expect(repository.findMany).not.toHaveBeenCalled();
+    });
+
+    it('allows minPrice equal to maxPrice', async () => {
+      repository.findMany.mockResolvedValue([[], 0]);
+      await expect(
+        service.findAllActive({
+          page: 1,
+          limit: 20,
+          sortOrder: 'DESC',
+          minPrice: 200000,
+          maxPrice: 200000,
+        } as never),
+      ).resolves.toBeDefined();
+    });
   });
 
   describe('suggest', () => {

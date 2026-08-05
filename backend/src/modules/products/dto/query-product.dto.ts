@@ -81,4 +81,24 @@ export class QueryProductDto {
   @IsOptional()
   @IsIn(['ASC', 'DESC'])
   sortOrder: 'ASC' | 'DESC' = 'DESC';
+
+  @ApiPropertyOptional({
+    description: 'Giá thấp nhất (VND, số nguyên, bao gồm)',
+    minimum: 0,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  minPrice?: number;
+
+  @ApiPropertyOptional({
+    description: 'Giá cao nhất (VND, số nguyên, bao gồm)',
+    minimum: 0,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  maxPrice?: number;
 }
