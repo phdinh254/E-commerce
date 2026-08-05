@@ -1,0 +1,24 @@
+[
+  { "productSlug": "ao-thun-basic-trang", "name": "Chất liệu", "value": "Cotton 100%", "displayOrder": 0 },
+  { "productSlug": "ao-thun-basic-trang", "name": "Xuất xứ", "value": "Việt Nam", "displayOrder": 1 },
+
+  { "productSlug": "ao-thun-basic-den", "name": "Chất liệu", "value": "Cotton 95% Spandex 5%", "displayOrder": 0 },
+  { "productSlug": "ao-thun-basic-den", "name": "Xuất xứ", "value": "Việt Nam", "displayOrder": 1 },
+  { "productSlug": "ao-thun-basic-den", "name": "Bảo hành", "value": "Đổi trả trong 7 ngày", "displayOrder": 2 },
+
+  { "productSlug": "ao-so-mi-nam-oxford", "name": "Chất liệu", "value": "Vải Oxford", "displayOrder": 0 },
+  { "productSlug": "ao-so-mi-nam-oxford", "name": "Xuất xứ", "value": "Việt Nam", "displayOrder": 1 },
+
+  { "productSlug": "quan-jean-slimfit", "name": "Chất liệu", "value": "Denim co giãn", "displayOrder": 0 },
+  { "productSlug": "quan-jean-slimfit", "name": "Xuất xứ", "value": "Việt Nam", "displayOrder": 1 },
+
+  { "productSlug": "dam-nu-hoa-tiet", "name": "Chất liệu", "value": "Voan lót trong", "displayOrder": 0 },
+  { "productSlug": "dam-nu-hoa-tiet", "name": "Xuất xứ", "value": "Việt Nam", "displayOrder": 1 },
+
+  { "productSlug": "giay-sneaker-trang", "name": "Chất liệu", "value": "Da tổng hợp", "displayOrder": 0 },
+  { "productSlug": "giay-sneaker-trang", "name": "Xuất xứ", "value": "Việt Nam", "displayOrder": 1 },
+  { "productSlug": "giay-sneaker-trang", "name": "Bảo hành", "value": "6 tháng", "displayOrder": 2 },
+
+  { "productSlug": "that-lung-da", "name": "Chất liệu", "value": "Da thật", "displayOrder": 0 },
+  { "productSlug": "that-lung-da", "name": "Xuất xứ", "value": "Việt Nam", "displayOrder": 1 }
+]

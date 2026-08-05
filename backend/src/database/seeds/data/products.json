@@ -1,0 +1,106 @@
+[
+  {
+    "sku": "TSHIRT-BASIC-WHITE",
+    "slug": "ao-thun-basic-trang",
+    "name": "Áo thun basic trắng",
+    "categorySlug": "ao-thun",
+    "shortDescription": "Áo thun cotton basic màu trắng",
+    "description": "Áo thun basic chất liệu cotton 100%, form regular fit, phù hợp mặc hằng ngày.",
+    "price": 150000,
+    "isActive": true
+  },
+  {
+    "sku": "TSHIRT-BASIC-BLACK",
+    "slug": "ao-thun-basic-den",
+    "name": "Áo thun basic đen",
+    "categorySlug": "ao-thun",
+    "shortDescription": "Áo thun cotton basic màu đen, nhiều size và màu",
+    "description": "Áo thun basic chất liệu cotton pha spandex co giãn nhẹ, có nhiều lựa chọn màu sắc và kích thước.",
+    "price": 150000,
+    "isActive": true,
+    "isFeatured": true,
+    "featuredOrder": 0
+  },
+  {
+    "sku": "SHIRT-OXFORD-001",
+    "slug": "ao-so-mi-nam-oxford",
+    "name": "Áo sơ mi nam Oxford",
+    "categorySlug": "ao-thun",
+    "shortDescription": "Áo sơ mi vải Oxford form slimfit",
+    "description": "Áo sơ mi nam vải Oxford dày dặn, phù hợp đi làm hoặc dạo phố.",
+    "price": 320000,
+    "isActive": true
+  },
+  {
+    "sku": "JEAN-SLIM-001",
+    "slug": "quan-jean-slimfit",
+    "name": "Quần jean slimfit",
+    "categorySlug": "quan-jean",
+    "shortDescription": "Quần jean nam form slimfit, nhiều size",
+    "description": "Quần jean nam chất liệu denim co giãn, form slimfit tôn dáng.",
+    "price": 450000,
+    "isActive": true
+  },
+  {
+    "sku": "JEAN-BAGGY-001",
+    "slug": "quan-jean-baggy",
+    "name": "Quần jean baggy",
+    "categorySlug": "quan-jean",
+    "shortDescription": "Quần jean form rộng phong cách streetwear",
+    "description": "Quần jean baggy chất liệu denim dày, phong cách streetwear. Sản phẩm đang tạm ngừng kinh doanh.",
+    "price": 480000,
+    "isActive": false
+  },
+  {
+    "sku": "DRESS-FLORAL-001",
+    "slug": "dam-nu-hoa-tiet",
+    "name": "Đầm nữ họa tiết",
+    "categorySlug": "thoi-trang-nu",
+    "shortDescription": "Đầm suông họa tiết hoa nhỏ",
+    "description": "Đầm nữ dáng suông, họa tiết hoa nhỏ, chất liệu voan lót trong.",
+    "price": 390000,
+    "isActive": true
+  },
+  {
+    "sku": "SKIRT-PLEAT-001",
+    "slug": "chan-vay-xep-li",
+    "name": "Chân váy xếp ly",
+    "categorySlug": "thoi-trang-nu",
+    "shortDescription": "Chân váy xếp ly midi",
+    "description": "Chân váy xếp ly dáng midi, chất liệu kaki mềm rũ.",
+    "price": 270000,
+    "isActive": true
+  },
+  {
+    "sku": "SNEAKER-WHITE-001",
+    "slug": "giay-sneaker-trang",
+    "name": "Giày sneaker trắng",
+    "categorySlug": "giay-dep",
+    "shortDescription": "Giày sneaker trắng basic, nhiều size",
+    "description": "Giày sneaker trắng basic dễ phối đồ, đế cao su bền bỉ.",
+    "price": 890000,
+    "isActive": true,
+    "isFeatured": true,
+    "featuredOrder": 1
+  },
+  {
+    "sku": "SANDAL-001",
+    "slug": "dep-quai-ngang",
+    "name": "Dép quai ngang",
+    "categorySlug": "giay-dep",
+    "shortDescription": "Dép quai ngang unisex",
+    "description": "Dép quai ngang unisex, chất liệu EVA nhẹ, êm chân.",
+    "price": 150000,
+    "isActive": true
+  },
+  {
+    "sku": "BELT-LEATHER-001",
+    "slug": "that-lung-da",
+    "name": "Thắt lưng da",
+    "categorySlug": "phu-kien",
+    "shortDescription": "Thắt lưng da thật, khóa kim loại",
+    "description": "Thắt lưng da thật, khóa kim loại chống gỉ, phù hợp đi làm.",
+    "price": 220000,
+    "isActive": true
+  }
+]

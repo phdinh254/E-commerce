@@ -1,0 +1,53 @@
+[
+  {
+    "productSlug": "ao-thun-basic-trang",
+    "assetFile": "placeholder-1.jpg",
+    "altText": "Áo thun basic trắng - mặt trước",
+    "displayOrder": 0
+  },
+  {
+    "productSlug": "ao-thun-basic-den",
+    "assetFile": "placeholder-1.jpg",
+    "altText": "Áo thun basic đen - ảnh chung",
+    "displayOrder": 0
+  },
+  {
+    "productSlug": "ao-thun-basic-den",
+    "variantSku": "TSHIRT-BASIC-BLACK-M",
+    "assetFile": "placeholder-2.png",
+    "altText": "Áo thun basic đen - size M",
+    "displayOrder": 0
+  },
+  {
+    "productSlug": "ao-thun-basic-den",
+    "variantSku": "TSHIRT-BASIC-WHITE-M",
+    "assetFile": "placeholder-2.png",
+    "altText": "Áo thun basic trắng - size M",
+    "displayOrder": 0
+  },
+  {
+    "productSlug": "quan-jean-slimfit",
+    "assetFile": "placeholder-3.webp",
+    "altText": "Quần jean slimfit - ảnh chung",
+    "displayOrder": 0
+  },
+  {
+    "productSlug": "dam-nu-hoa-tiet",
+    "assetFile": "placeholder-3.webp",
+    "altText": "Đầm nữ họa tiết",
+    "displayOrder": 0
+  },
+  {
+    "productSlug": "giay-sneaker-trang",
+    "assetFile": "placeholder-2.png",
+    "altText": "Giày sneaker trắng - ảnh chung",
+    "displayOrder": 0
+  },
+  {
+    "productSlug": "giay-sneaker-trang",
+    "variantSku": "SNEAKER-WHITE-40",
+    "assetFile": "placeholder-1.jpg",
+    "altText": "Giày sneaker trắng - size 40",
+    "displayOrder": 0
+  }
+]

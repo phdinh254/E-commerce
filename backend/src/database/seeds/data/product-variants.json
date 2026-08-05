@@ -1,0 +1,77 @@
+[
+  {
+    "productSlug": "ao-thun-basic-den",
+    "sku": "TSHIRT-BASIC-BLACK-S",
+    "optionValues": [
+      { "optionName": "Màu sắc", "value": "Đen" },
+      { "optionName": "Kích thước", "value": "S" }
+    ],
+    "stock": 20
+  },
+  {
+    "productSlug": "ao-thun-basic-den",
+    "sku": "TSHIRT-BASIC-BLACK-M",
+    "optionValues": [
+      { "optionName": "Màu sắc", "value": "Đen" },
+      { "optionName": "Kích thước", "value": "M" }
+    ],
+    "stock": 30
+  },
+  {
+    "productSlug": "ao-thun-basic-den",
+    "sku": "TSHIRT-BASIC-BLACK-L",
+    "optionValues": [
+      { "optionName": "Màu sắc", "value": "Đen" },
+      { "optionName": "Kích thước", "value": "L" }
+    ],
+    "stock": 15
+  },
+  {
+    "productSlug": "ao-thun-basic-den",
+    "sku": "TSHIRT-BASIC-WHITE-M",
+    "optionValues": [
+      { "optionName": "Màu sắc", "value": "Trắng" },
+      { "optionName": "Kích thước", "value": "M" }
+    ],
+    "stock": 25
+  },
+  {
+    "productSlug": "quan-jean-slimfit",
+    "sku": "JEAN-SLIM-30",
+    "optionValues": [{ "optionName": "Kích thước", "value": "30" }],
+    "stock": 10
+  },
+  {
+    "productSlug": "quan-jean-slimfit",
+    "sku": "JEAN-SLIM-31",
+    "optionValues": [{ "optionName": "Kích thước", "value": "31" }],
+    "stock": 12
+  },
+  {
+    "productSlug": "quan-jean-slimfit",
+    "sku": "JEAN-SLIM-32",
+    "optionValues": [{ "optionName": "Kích thước", "value": "32" }],
+    "stock": 8
+  },
+  {
+    "productSlug": "giay-sneaker-trang",
+    "sku": "SNEAKER-WHITE-40",
+    "optionValues": [{ "optionName": "Kích thước", "value": "40" }],
+    "price": 890000,
+    "stock": 18
+  },
+  {
+    "productSlug": "giay-sneaker-trang",
+    "sku": "SNEAKER-WHITE-41",
+    "optionValues": [{ "optionName": "Kích thước", "value": "41" }],
+    "price": 890000,
+    "stock": 22
+  },
+  {
+    "productSlug": "giay-sneaker-trang",
+    "sku": "SNEAKER-WHITE-42",
+    "optionValues": [{ "optionName": "Kích thước", "value": "42" }],
+    "price": 890000,
+    "stock": 14
+  }
+]

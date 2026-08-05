@@ -1,0 +1,41 @@
+[
+  {
+    "productSlug": "ao-thun-basic-den",
+    "name": "Màu sắc",
+    "displayOrder": 0,
+    "values": [
+      { "value": "Đen", "displayOrder": 0 },
+      { "value": "Trắng", "displayOrder": 1 }
+    ]
+  },
+  {
+    "productSlug": "ao-thun-basic-den",
+    "name": "Kích thước",
+    "displayOrder": 1,
+    "values": [
+      { "value": "S", "displayOrder": 0 },
+      { "value": "M", "displayOrder": 1 },
+      { "value": "L", "displayOrder": 2 }
+    ]
+  },
+  {
+    "productSlug": "quan-jean-slimfit",
+    "name": "Kích thước",
+    "displayOrder": 0,
+    "values": [
+      { "value": "30", "displayOrder": 0 },
+      { "value": "31", "displayOrder": 1 },
+      { "value": "32", "displayOrder": 2 }
+    ]
+  },
+  {
+    "productSlug": "giay-sneaker-trang",
+    "name": "Kích thước",
+    "displayOrder": 0,
+    "values": [
+      { "value": "40", "displayOrder": 0 },
+      { "value": "41", "displayOrder": 1 },
+      { "value": "42", "displayOrder": 2 }
+    ]
+  }
+]

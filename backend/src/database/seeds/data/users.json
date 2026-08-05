@@ -1,0 +1,26 @@
+[
+  {
+    "email": "admin.demo@example.local",
+    "fullName": "Quản Trị Viên Demo",
+    "role": "ADMIN",
+    "status": "ACTIVE"
+  },
+  {
+    "email": "customer.one@example.local",
+    "fullName": "Nguyễn Văn Một",
+    "role": "CUSTOMER",
+    "status": "ACTIVE"
+  },
+  {
+    "email": "customer.two@example.local",
+    "fullName": "Trần Thị Hai",
+    "role": "CUSTOMER",
+    "status": "ACTIVE"
+  },
+  {
+    "email": "customer.three@example.local",
+    "fullName": "Lê Văn Ba",
+    "role": "CUSTOMER",
+    "status": "ACTIVE"
+  }
+]

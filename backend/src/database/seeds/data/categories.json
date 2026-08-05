@@ -1,0 +1,46 @@
+[
+  {
+    "slug": "thoi-trang-nam",
+    "name": "Thời trang nam",
+    "description": "Quần áo và phụ kiện dành cho nam",
+    "displayOrder": 0,
+    "isActive": true
+  },
+  {
+    "slug": "thoi-trang-nu",
+    "name": "Thời trang nữ",
+    "description": "Quần áo và phụ kiện dành cho nữ",
+    "displayOrder": 1,
+    "isActive": true
+  },
+  {
+    "slug": "ao-thun",
+    "name": "Áo thun",
+    "description": "Áo thun nam các loại",
+    "displayOrder": 0,
+    "isActive": true,
+    "parentSlug": "thoi-trang-nam"
+  },
+  {
+    "slug": "quan-jean",
+    "name": "Quần jean",
+    "description": "Quần jean nam các loại",
+    "displayOrder": 1,
+    "isActive": true,
+    "parentSlug": "thoi-trang-nam"
+  },
+  {
+    "slug": "giay-dep",
+    "name": "Giày dép",
+    "description": "Giày, dép nam nữ",
+    "displayOrder": 2,
+    "isActive": true
+  },
+  {
+    "slug": "phu-kien",
+    "name": "Phụ kiện",
+    "description": "Phụ kiện thời trang",
+    "displayOrder": 3,
+    "isActive": true
+  }
+]
