@@ -6,6 +6,7 @@ import { ProductsService } from './products.service';
 import { ProductsController } from './products.controller';
 import { ProductsCacheService } from './cache/products-cache.service';
 import { CategoriesModule } from '../categories/categories.module';
+import { StorageModule } from '../../infrastructure/storage/storage.module';
 
 import { ProductOptionEntity } from './variants/entities/product-option.entity';
 import { ProductOptionValueEntity } from './variants/entities/product-option-value.entity';
@@ -24,6 +25,11 @@ import { ProductAttributesRepository } from './attributes/product-attributes.rep
 import { ProductAttributesService } from './attributes/product-attributes.service';
 import { ProductAttributesController } from './attributes/product-attributes.controller';
 
+import { ProductImageEntity } from './images/entities/product-image.entity';
+import { ProductImagesRepository } from './images/product-images.repository';
+import { ProductImagesService } from './images/product-images.service';
+import { ProductImagesController } from './images/product-images.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -34,14 +40,17 @@ import { ProductAttributesController } from './attributes/product-attributes.con
       ProductVariantOptionValueEntity,
       ProductVariantChangeLogEntity,
       ProductAttributeEntity,
+      ProductImageEntity,
     ]),
     CategoriesModule,
+    StorageModule,
   ],
   controllers: [
     ProductsController,
     ProductOptionsController,
     ProductVariantsController,
     ProductAttributesController,
+    ProductImagesController,
   ],
   providers: [
     ProductsRepository,
@@ -53,6 +62,8 @@ import { ProductAttributesController } from './attributes/product-attributes.con
     ProductVariantsService,
     ProductAttributesRepository,
     ProductAttributesService,
+    ProductImagesRepository,
+    ProductImagesService,
   ],
   exports: [ProductsService],
 })
