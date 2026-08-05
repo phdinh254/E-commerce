@@ -41,9 +41,7 @@ describe('Product Images (e2e)', () => {
   beforeAll(async () => {
     fakeStorage = new FakeStorageProvider();
     app = await createTestApp((builder) =>
-      builder
-        .overrideProvider(STORAGE_PROVIDER)
-        .useValue(fakeStorage) as unknown as typeof builder,
+      builder.overrideProvider(STORAGE_PROVIDER).useValue(fakeStorage),
     );
     dataSource = app.get<DataSource>(getDataSourceToken());
     redisService = app.get(RedisService);
@@ -70,6 +68,10 @@ describe('Product Images (e2e)', () => {
     await dataSource.query('TRUNCATE TABLE "refresh_tokens" CASCADE');
     await dataSource.query('TRUNCATE TABLE "users" CASCADE');
     await redisService.getClient().flushdb();
+    fakeStorage.failUploadOnCallNumber = null;
+    fakeStorage.failNextUpload = false;
+    fakeStorage.failNextRemove = false;
+    fakeStorage.resetUploadCallCount();
   });
 
   const server = () => app.getHttpServer();
@@ -148,7 +150,11 @@ describe('Product Images (e2e)', () => {
     const variant = await request(server())
       .post(`/api/v1/products/${productId}/variants`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ sku: unique('VAR-SKU'), optionValueIds: [valueId], ...overrides });
+      .send({
+        sku: unique('VAR-SKU'),
+        optionValueIds: [valueId],
+        ...overrides,
+      });
     return variant.body.id as string;
   }
 
@@ -394,20 +400,10 @@ describe('Product Images (e2e)', () => {
     it('a mid-batch upload failure cleans up already-uploaded objects and leaves no DB rows', async () => {
       const token = await getAdminToken();
       const product = await createProduct(token);
-      fakeStorage.failNextUpload = false;
-      // Force the SECOND upload in this request to fail by pre-seeding the
-      // fake store with the eventual random path is impossible (UUID), so
-      // instead we use the explicit failure flag on the fake adapter,
-      // simulating "Supabase upload lỗi" for one file mid-batch.
-      const originalUpload = fakeStorage.upload.bind(fakeStorage);
-      let calls = 0;
-      fakeStorage.upload = (input) => {
-        calls += 1;
-        if (calls === 2) {
-          return Promise.reject(new Error('simulated flaky network'));
-        }
-        return originalUpload(input);
-      };
+      // Force the SECOND upload() call in this request to fail —
+      // simulates "Supabase upload lỗi" mid-batch (Ch11-B102/B103).
+      fakeStorage.resetUploadCallCount();
+      fakeStorage.failUploadOnCallNumber = 2;
 
       const res = await request(server())
         .post(`/api/v1/products/${product.id}/images/bulk`)
@@ -421,7 +417,7 @@ describe('Product Images (e2e)', () => {
       );
       expect(list.body).toEqual([]);
 
-      fakeStorage.upload = originalUpload;
+      fakeStorage.failUploadOnCallNumber = null;
     });
 
     it('Customer is denied (403)', async () => {
@@ -637,7 +633,9 @@ describe('Product Images (e2e)', () => {
         .attach('file', JPEG_BYTES, 'a.jpg');
 
       const res = await request(server())
-        .patch(`/api/v1/products/${product.id}/images/${created.body.id}/variant`)
+        .patch(
+          `/api/v1/products/${product.id}/images/${created.body.id}/variant`,
+        )
         .set('Authorization', `Bearer ${token}`)
         .send({ variantId });
       expect(res.status).toBe(200);
@@ -655,7 +653,9 @@ describe('Product Images (e2e)', () => {
         .attach('file', JPEG_BYTES, 'a.jpg');
 
       const res = await request(server())
-        .patch(`/api/v1/products/${productA.id}/images/${created.body.id}/variant`)
+        .patch(
+          `/api/v1/products/${productA.id}/images/${created.body.id}/variant`,
+        )
         .set('Authorization', `Bearer ${token}`)
         .send({ variantId: variantOfB });
       expect(res.status).toBe(404);
@@ -672,7 +672,9 @@ describe('Product Images (e2e)', () => {
         .field('variantId', variantId);
 
       const res = await request(server())
-        .patch(`/api/v1/products/${product.id}/images/${created.body.id}/variant`)
+        .patch(
+          `/api/v1/products/${product.id}/images/${created.body.id}/variant`,
+        )
         .set('Authorization', `Bearer ${token}`)
         .send({ variantId: null });
       expect(res.status).toBe(200);
@@ -690,7 +692,9 @@ describe('Product Images (e2e)', () => {
       const customerToken = await getCustomerToken();
 
       const res = await request(server())
-        .patch(`/api/v1/products/${product.id}/images/${created.body.id}/variant`)
+        .patch(
+          `/api/v1/products/${product.id}/images/${created.body.id}/variant`,
+        )
         .set('Authorization', `Bearer ${customerToken}`)
         .send({ variantId });
       expect(res.status).toBe(403);

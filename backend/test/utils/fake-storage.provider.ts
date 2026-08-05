@@ -1,6 +1,7 @@
 import {
   StorageConflictError,
   StorageProvider,
+  StorageUnavailableError,
   UploadFileInput,
   UploadFileResult,
 } from '../../src/infrastructure/storage/storage.interface';
@@ -15,13 +16,21 @@ import {
  */
 export class FakeStorageProvider implements StorageProvider {
   private readonly objects = new Map<string, Buffer>();
+  private uploadCallCount = 0;
   failNextUpload = false;
   failNextRemove = false;
+  /** Simulates a mid-batch failure — e.g. `2` fails only the 2nd upload() call. */
+  failUploadOnCallNumber: number | null = null;
 
   async upload(input: UploadFileInput): Promise<UploadFileResult> {
+    await Promise.resolve();
+    this.uploadCallCount += 1;
     if (this.failNextUpload) {
       this.failNextUpload = false;
       throw new Error('simulated upload failure');
+    }
+    if (this.uploadCallCount === this.failUploadOnCallNumber) {
+      throw new StorageUnavailableError('simulated flaky network');
     }
     if (this.objects.has(input.path)) {
       throw new StorageConflictError(`Object already exists at ${input.path}`);
@@ -31,6 +40,7 @@ export class FakeStorageProvider implements StorageProvider {
   }
 
   async remove(path: string): Promise<void> {
+    await Promise.resolve();
     if (this.failNextRemove) {
       this.failNextRemove = false;
       throw new Error('simulated remove failure');
@@ -39,6 +49,7 @@ export class FakeStorageProvider implements StorageProvider {
   }
 
   async getSignedUrl(path: string, expiresInSeconds: number): Promise<string> {
+    await Promise.resolve();
     return `https://fake-storage.test/${path}?ttl=${expiresInSeconds}`;
   }
 
@@ -48,6 +59,10 @@ export class FakeStorageProvider implements StorageProvider {
 
   has(path: string): boolean {
     return this.objects.has(path);
+  }
+
+  resetUploadCallCount(): void {
+    this.uploadCallCount = 0;
   }
 
   size(): number {
