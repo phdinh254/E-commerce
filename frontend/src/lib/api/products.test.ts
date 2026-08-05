@@ -93,3 +93,40 @@ describe("productsApi.list", () => {
     await expect(productsApi.list({})).rejects.toThrow("network down");
   });
 });
+
+describe("productsApi.getBySlug", () => {
+  it("calls GET /products/slug/:slug and returns the response data", async () => {
+    const product = { id: "p1", slug: "tai-nghe" };
+    const get = vi.spyOn(apiClient, "get").mockResolvedValue({ data: product });
+
+    const result = await productsApi.getBySlug("tai-nghe");
+
+    expect(get).toHaveBeenCalledWith("/products/slug/tai-nghe", { signal: undefined });
+    expect(result).toBe(product);
+  });
+
+  it("percent-encodes the slug so it cannot escape the path segment", async () => {
+    const get = vi.spyOn(apiClient, "get").mockResolvedValue({ data: {} });
+
+    await productsApi.getBySlug("a/../b?x=1");
+
+    expect(get).toHaveBeenCalledWith(
+      `/products/slug/${encodeURIComponent("a/../b?x=1")}`,
+      { signal: undefined },
+    );
+  });
+
+  it("forwards the AbortSignal", async () => {
+    const get = vi.spyOn(apiClient, "get").mockResolvedValue({ data: {} });
+    const controller = new AbortController();
+
+    await productsApi.getBySlug("tai-nghe", controller.signal);
+
+    expect(get).toHaveBeenCalledWith("/products/slug/tai-nghe", { signal: controller.signal });
+  });
+
+  it("does not swallow errors", async () => {
+    vi.spyOn(apiClient, "get").mockRejectedValue(new Error("not found"));
+    await expect(productsApi.getBySlug("missing")).rejects.toThrow("not found");
+  });
+});

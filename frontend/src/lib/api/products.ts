@@ -1,5 +1,6 @@
 import { apiClient } from "@/lib/api/client";
 import type { PaginatedProducts, ProductListQuery } from "@/types/catalog";
+import type { ProductDetail } from "@/types/product-detail";
 
 /**
  * Whitelists and normalizes the query before it ever reaches axios —
@@ -50,6 +51,20 @@ export const productsApi = {
       params: buildProductListParams(query),
       signal,
     });
+    return response.data;
+  },
+
+  /**
+   * GET /products/slug/:slug — public, active-only (ProductsService.findActiveBySlug).
+   * `slug` is taken verbatim from the URL segment; axios/encodeURIComponent
+   * handles percent-encoding so a slug containing reserved characters can't
+   * escape the path segment.
+   */
+  async getBySlug(slug: string, signal?: AbortSignal): Promise<ProductDetail> {
+    const response = await apiClient.get<ProductDetail>(
+      `/products/slug/${encodeURIComponent(slug)}`,
+      { signal },
+    );
     return response.data;
   },
 };
