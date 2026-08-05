@@ -69,6 +69,8 @@ export interface SupabaseConfig {
   url?: string;
   serviceRoleKey?: string;
   storageBucket?: string;
+  /** Signed URL TTL for private-bucket product image reads (never persisted). */
+  signedUrlTtlSeconds: number;
 }
 
 export type LogLevel =
@@ -163,6 +165,10 @@ export default () => ({
     url: process.env.SUPABASE_URL || undefined,
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || undefined,
     storageBucket: process.env.SUPABASE_STORAGE_BUCKET || undefined,
+    signedUrlTtlSeconds: parseInt(
+      process.env.SUPABASE_SIGNED_URL_TTL_SECONDS ?? '3600',
+      10,
+    ),
   } as SupabaseConfig,
   logger: {
     level:

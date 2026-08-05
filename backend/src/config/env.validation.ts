@@ -46,9 +46,26 @@ export const envValidationSchema = Joi.object({
   GOOGLE_CLIENT_SECRET: Joi.string().allow('').optional(),
   GOOGLE_CALLBACK_URL: Joi.string().uri().allow('').optional(),
 
-  SUPABASE_URL: Joi.string().uri().allow('').optional(),
-  SUPABASE_SERVICE_ROLE_KEY: Joi.string().allow('').optional(),
-  SUPABASE_STORAGE_BUCKET: Joi.string().allow('').optional(),
+  // Required in production (real upload endpoints depend on them);
+  // optional in development/test so the app still boots without a
+  // configured Supabase project — the storage provider fails fast with a
+  // clear error only when an upload/remove/signed-url call is actually made.
+  SUPABASE_URL: Joi.string().uri().allow('').when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().uri().required(),
+    otherwise: Joi.optional(),
+  }),
+  SUPABASE_SERVICE_ROLE_KEY: Joi.string().allow('').when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().required(),
+    otherwise: Joi.optional(),
+  }),
+  SUPABASE_STORAGE_BUCKET: Joi.string().allow('').when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().required(),
+    otherwise: Joi.optional(),
+  }),
+  SUPABASE_SIGNED_URL_TTL_SECONDS: Joi.number().integer().min(1).default(3600),
 
   PRODUCT_SEARCH_CACHE_TTL_SECONDS: Joi.number().integer().min(1).default(60),
   PRODUCT_FEATURED_CACHE_TTL_SECONDS: Joi.number()

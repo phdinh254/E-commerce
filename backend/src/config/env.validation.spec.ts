@@ -108,3 +108,62 @@ describe('envValidationSchema (FRONTEND_URL / APP_NAME)', () => {
     expect(value.APP_NAME).toBe('E-commerce');
   });
 });
+
+describe('envValidationSchema (SUPABASE_* — production fail-fast)', () => {
+  it('allows SUPABASE_* to be entirely unset in development', () => {
+    const { error } = envValidationSchema.validate(
+      baseEnv({ NODE_ENV: 'development' }),
+      { allowUnknown: true, abortEarly: false },
+    );
+    expect(error).toBeUndefined();
+  });
+
+  it('allows SUPABASE_* to be entirely unset in test', () => {
+    const { error } = envValidationSchema.validate(
+      baseEnv({ NODE_ENV: 'test' }),
+      { allowUnknown: true, abortEarly: false },
+    );
+    expect(error).toBeUndefined();
+  });
+
+  it('rejects a missing SUPABASE_URL/SERVICE_ROLE_KEY/STORAGE_BUCKET in production', () => {
+    const { error } = envValidationSchema.validate(
+      baseEnv({ NODE_ENV: 'production', COOKIE_SECURE: 'true' }),
+      { allowUnknown: true, abortEarly: false },
+    );
+    expect(error).toBeDefined();
+    const missing = error?.details.map((d) => d.path.join('.')) ?? [];
+    expect(missing).toEqual(
+      expect.arrayContaining([
+        'SUPABASE_URL',
+        'SUPABASE_SERVICE_ROLE_KEY',
+        'SUPABASE_STORAGE_BUCKET',
+      ]),
+    );
+  });
+
+  it('accepts production when all three SUPABASE_* vars are set', () => {
+    const { error } = envValidationSchema.validate(
+      baseEnv({
+        NODE_ENV: 'production',
+        SUPABASE_URL: 'https://xxxx.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+        SUPABASE_STORAGE_BUCKET: 'product-images',
+      }),
+      { allowUnknown: true, abortEarly: false },
+    );
+    expect(error).toBeUndefined();
+  });
+
+  it('defaults SUPABASE_SIGNED_URL_TTL_SECONDS to 3600', () => {
+    const { error, value } = envValidationSchema.validate(baseEnv(), {
+      allowUnknown: true,
+      abortEarly: false,
+    }) as {
+      error: unknown;
+      value: { SUPABASE_SIGNED_URL_TTL_SECONDS: number };
+    };
+    expect(error).toBeUndefined();
+    expect(value.SUPABASE_SIGNED_URL_TTL_SECONDS).toBe(3600);
+  });
+});
