@@ -77,9 +77,9 @@ running dev server + headless Chrome screenshots (see report section L).
 - The global announcement bar / header overflows horizontally at very
   narrow widths (≤375px) — present on `/` (home) too, so it predates this
   chapter and lives in `components/layout/*`, not the catalog components.
-- `/products/[slug]` (product detail) and the home page's featured
-  section still render `@/lib/data/mock-data.ts` — out of Chapter 13's
-  scope (only the listing/search experience). A real `CatalogProductCard`
-  links to `/products/{slug}` for forward-compatibility, but that route
-  will 404 for a real (non-mock) product slug until a future chapter
-  wires it to the real product-detail API.
+- The home page's featured section still renders `@/lib/data/mock-data.ts`
+  — out of scope for both Chapter 13 and Chapter 14 (only the landing
+  page's "featured" strip; the real `GET /products/featured` endpoint
+  exists but nothing consumes it yet).
+- `/products/[slug]` (product detail) now uses the real API — see
+  `docs/product-detail.md` (Chapter 14).
