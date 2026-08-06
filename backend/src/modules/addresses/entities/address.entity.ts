@@ -40,6 +40,11 @@ export class AddressEntity {
   @JoinColumn({ name: 'user_id' })
   user: UserEntity;
 
+  /** User-facing label for this saved address ("Nhà riêng", "Công ty") —
+   * distinct from a per-order note, which lives on Order/checkout instead. */
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  label: string | null;
+
   @Column({ name: 'recipient_name', type: 'varchar', length: 255 })
   recipientName: string;
 

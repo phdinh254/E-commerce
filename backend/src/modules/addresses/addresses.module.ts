@@ -1,13 +1,20 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AddressEntity } from './entities/address.entity';
+import { AddressesRepository } from './addresses.repository';
+import { AddressesService } from './addresses.service';
+import { AddressesController } from './addresses.controller';
 
 /**
- * Registers AddressEntity so autoLoadEntities picks it up at runtime and a
- * repository is available for injection once Address CRUD is built.
- * Intentionally has no controller/service — those are out of scope here.
+ * Ch18: full CRUD + default-address business rules. Exports
+ * AddressesService (not the repository) so CheckoutModule can resolve and
+ * ownership-check an addressId for the shipping snapshot without reaching
+ * into Address's persistence layer directly.
  */
 @Module({
   imports: [TypeOrmModule.forFeature([AddressEntity])],
+  controllers: [AddressesController],
+  providers: [AddressesRepository, AddressesService],
+  exports: [AddressesService],
 })
 export class AddressesModule {}
