@@ -33,4 +33,8 @@ export class UsersRepository {
   async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
     await this.repository.update({ id }, { passwordHash });
   }
+
+  async updateFullName(id: string, fullName: string): Promise<void> {
+    await this.repository.update({ id }, { fullName });
+  }
 }

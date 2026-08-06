@@ -15,6 +15,7 @@ import { StorageModule } from './infrastructure/storage/storage.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AddressesModule } from './modules/addresses/addresses.module';
+import { ProfileModule } from './modules/profile/profile.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ProductsModule } from './modules/products/products.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
@@ -61,6 +62,7 @@ import { RedisConfig } from './config/configuration';
     UsersModule,
     AuthModule,
     AddressesModule,
+    ProfileModule,
     CategoriesModule,
     ProductsModule,
     CouponsModule,
