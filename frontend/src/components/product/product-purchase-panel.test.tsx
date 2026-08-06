@@ -162,6 +162,10 @@ describe("ProductPurchasePanel", () => {
       items: [],
       totalQuantity: 1,
       subtotal: 90000,
+      discountAmount: 0,
+      total: 90000,
+      appliedCoupon: null,
+      couponRemovedReason: null,
       currency: "VND",
       updatedAt: null,
     });

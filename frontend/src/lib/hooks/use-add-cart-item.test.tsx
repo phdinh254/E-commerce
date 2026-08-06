@@ -17,6 +17,10 @@ const CART = {
   items: [{ itemId: "i1", productId: "p1", variantId: null, productName: "X", slug: "x", sku: "SKU", image: null, selectedOptions: null, quantity: 1, unitPrice: 1000, lineTotal: 1000, available: true, unavailableReason: null }],
   totalQuantity: 1,
   subtotal: 1000,
+  discountAmount: 0,
+  total: 1000,
+  appliedCoupon: null,
+  couponRemovedReason: null,
   currency: "VND" as const,
   updatedAt: null,
 };

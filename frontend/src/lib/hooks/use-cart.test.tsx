@@ -23,6 +23,10 @@ const CART = {
   items: [],
   totalQuantity: 0,
   subtotal: 0,
+  discountAmount: 0,
+  total: 0,
+  appliedCoupon: null,
+  couponRemovedReason: null,
   currency: "VND" as const,
   updatedAt: null,
 };

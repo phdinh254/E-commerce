@@ -101,3 +101,67 @@ describe("cartApi.removeItem", () => {
     expect(del).toHaveBeenCalledWith("/cart/items/item-1");
   });
 });
+
+const PREVIEW = {
+  code: "WELCOME10",
+  valid: true,
+  discountType: "PERCENTAGE" as const,
+  discountValue: 10,
+  subtotal: 100_000,
+  discountAmount: 10_000,
+  total: 90_000,
+  reasonCode: null,
+  message: "Mã giảm giá hợp lệ",
+};
+
+describe("cartApi.previewCoupon", () => {
+  it("posts only {code} to /cart/coupon/preview", async () => {
+    const post = vi.spyOn(apiClient, "post").mockResolvedValue({ data: PREVIEW });
+
+    const result = await cartApi.previewCoupon("welcome10");
+
+    expect(post).toHaveBeenCalledWith("/cart/coupon/preview", { code: "welcome10" });
+    expect(result).toBe(PREVIEW);
+  });
+
+  it("never sends subtotal, userId, or cartId", async () => {
+    const post = vi.spyOn(apiClient, "post").mockResolvedValue({ data: PREVIEW });
+
+    await cartApi.previewCoupon("X");
+
+    const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];
+    expect(body).not.toHaveProperty("subtotal");
+    expect(body).not.toHaveProperty("userId");
+    expect(body).not.toHaveProperty("cartId");
+  });
+
+  it("does not swallow errors", async () => {
+    vi.spyOn(apiClient, "post").mockRejectedValue(new Error("server error"));
+    await expect(cartApi.previewCoupon("X")).rejects.toThrow("server error");
+  });
+});
+
+describe("cartApi.applyCoupon", () => {
+  it("sends a PUT with only {code}", async () => {
+    const put = vi.spyOn(apiClient, "put").mockResolvedValue({ data: CART });
+
+    await cartApi.applyCoupon("WELCOME10");
+
+    expect(put).toHaveBeenCalledWith("/cart/coupon", { code: "WELCOME10" });
+  });
+
+  it("does not swallow errors", async () => {
+    vi.spyOn(apiClient, "put").mockRejectedValue(new Error("invalid"));
+    await expect(cartApi.applyCoupon("X")).rejects.toThrow("invalid");
+  });
+});
+
+describe("cartApi.removeCoupon", () => {
+  it("calls DELETE /cart/coupon with no body", async () => {
+    const del = vi.spyOn(apiClient, "delete").mockResolvedValue({ data: CART });
+
+    await cartApi.removeCoupon();
+
+    expect(del).toHaveBeenCalledWith("/cart/coupon");
+  });
+});

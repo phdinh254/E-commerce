@@ -21,6 +21,10 @@ const INITIAL: Cart = {
   ],
   totalQuantity: 3,
   subtotal: 2500,
+  discountAmount: 0,
+  total: 2500,
+  appliedCoupon: null,
+  couponRemovedReason: null,
   currency: "VND",
   updatedAt: null,
 };
