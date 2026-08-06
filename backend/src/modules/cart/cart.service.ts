@@ -7,13 +7,25 @@ import {
 import { createHash } from 'crypto';
 import { CartRepository } from './cart.repository';
 import { IdempotencyRepository } from './idempotency.repository';
-import { CartMapper, EMPTY_CART, VariantOptionLabel } from './cart.mapper';
+import {
+  CartMapper,
+  CouponPricingInput,
+  EMPTY_CART,
+  VariantOptionLabel,
+} from './cart.mapper';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { CartResponseDto } from './dto/cart-response.dto';
 import { ProductsService } from '../products/products.service';
 import { ProductVariantsService } from '../products/variants/product-variants.service';
 import { OrderEntity } from './entities/order.entity';
 import { CART_ADD_ITEM_OPERATION } from './cart.constants';
+import { CartPricingService } from './cart-pricing.service';
+
+const NO_COUPON_PRICING: CouponPricingInput = {
+  discountAmount: 0,
+  couponRemoved: false,
+  removedReason: null,
+};
 
 @Injectable()
 export class CartService {
@@ -23,6 +35,7 @@ export class CartService {
     private readonly cartMapper: CartMapper,
     private readonly productsService: ProductsService,
     private readonly productVariantsService: ProductVariantsService,
+    private readonly cartPricingService: CartPricingService,
   ) {}
 
   async getCart(userId: string): Promise<CartResponseDto> {
@@ -30,7 +43,12 @@ export class CartService {
     if (!order) {
       return EMPTY_CART;
     }
-    return this.toResponse(order);
+    const pricing = order.couponId
+      ? await this.cartRepository.runInTransaction((manager) =>
+          this.cartPricingService.revalidateCoupon(order, manager),
+        )
+      : NO_COUPON_PRICING;
+    return this.toResponse(order, pricing);
   }
 
   async addItem(
@@ -86,12 +104,15 @@ export class CartService {
         unitPriceAmount: unitPrice,
       });
 
-      const fullOrder = await manager.getRepository(OrderEntity).findOne({
+      const fullOrder = (await manager.getRepository(OrderEntity).findOne({
         where: { id: cart.id },
         relations: { items: { product: true, variant: true } },
         order: { items: { createdAt: 'ASC', id: 'ASC' } },
-      });
-      const response = await this.toResponse(fullOrder as OrderEntity);
+      })) as OrderEntity;
+      const pricing = fullOrder.couponId
+        ? await this.cartPricingService.revalidateCoupon(fullOrder, manager)
+        : NO_COUPON_PRICING;
+      const response = await this.toResponse(fullOrder, pricing);
 
       await this.idempotencyRepository.recordResponse(
         insertOutcome.record.id,
@@ -141,6 +162,16 @@ export class CartService {
 
   async removeItem(userId: string, itemId: string): Promise<void> {
     await this.cartRepository.deleteItemForUser(userId, itemId);
+    // Deleting a line can drop subtotal below the applied coupon's
+    // minimum — persist the revalidated (possibly self-gỡ) state
+    // immediately rather than waiting for the next GET, since DELETE
+    // returns no body and callers may read the cart independently.
+    const order = await this.cartRepository.findActiveCartWithItems(userId);
+    if (order?.couponId) {
+      await this.cartRepository.runInTransaction((manager) =>
+        this.cartPricingService.revalidateCoupon(order, manager),
+      );
+    }
   }
 
   private async resolveLinePrice(
@@ -185,7 +216,10 @@ export class CartService {
     return { unitPrice: product.price, variantId: null };
   }
 
-  private async toResponse(order: OrderEntity): Promise<CartResponseDto> {
+  private async toResponse(
+    order: OrderEntity,
+    pricing: CouponPricingInput,
+  ): Promise<CartResponseDto> {
     const variantIds = [
       ...new Set(
         order.items
@@ -207,7 +241,7 @@ export class CartService {
       ]),
     );
 
-    return this.cartMapper.toResponse(order, labelsByVariantId);
+    return this.cartMapper.toResponse(order, labelsByVariantId, pricing);
   }
 
   private hashPayload(dto: AddCartItemDto): string {

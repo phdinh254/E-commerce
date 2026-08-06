@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { AppliedCouponDto } from '../../coupons/dto/applied-coupon.dto';
 
 export class CartItemResponseDto {
   @ApiProperty({ format: 'uuid' })
@@ -53,8 +54,26 @@ export class CartResponseDto {
   })
   totalQuantity: number;
 
-  @ApiProperty({ description: 'Tổng tiền các dòng, tính bằng VND' })
+  @ApiProperty({
+    description: 'Tổng tiền các dòng trước giảm giá, tính bằng VND',
+  })
   subtotal: number;
+
+  @ApiProperty({ description: 'Số tiền được giảm thực tế, tính bằng VND' })
+  discountAmount: number;
+
+  @ApiProperty({ description: 'subtotal - discountAmount, tính bằng VND' })
+  total: number;
+
+  @ApiPropertyOptional({ type: AppliedCouponDto, nullable: true })
+  appliedCoupon: AppliedCouponDto | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Chỉ có giá trị trong response của lệnh gọi vừa khiến Coupon tự bị gỡ (ví dụ subtotal không còn đạt minimum) — không persist.',
+  })
+  couponRemovedReason: string | null;
 
   @ApiProperty({ description: 'VND' })
   currency: 'VND';

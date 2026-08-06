@@ -7,11 +7,30 @@ export interface VariantOptionLabel {
   value: string;
 }
 
+/** Shape produced by CartPricingService.revalidateCoupon — declared locally
+ * (not imported) so this pure mapper stays decoupled from the pricing
+ * orchestration service. */
+export interface CouponPricingInput {
+  discountAmount: number;
+  couponRemoved: boolean;
+  removedReason: string | null;
+}
+
+const NO_COUPON: CouponPricingInput = {
+  discountAmount: 0,
+  couponRemoved: false,
+  removedReason: null,
+};
+
 export const EMPTY_CART: CartResponseDto = {
   cartId: null,
   items: [],
   totalQuantity: 0,
   subtotal: 0,
+  discountAmount: 0,
+  total: 0,
+  appliedCoupon: null,
+  couponRemovedReason: null,
   currency: 'VND',
   updatedAt: null,
 };
@@ -22,10 +41,17 @@ export class CartMapper {
    * `optionLabelsByVariantId` is pre-fetched in one batched call by the
    * service (ProductVariantsService.findManyByIdsWithOptionValues) — the
    * mapper itself never queries, keeping this a pure, N+1-free projection.
+   *
+   * `pricing` is the already-revalidated result from CartPricingService —
+   * this mapper never re-derives the discount formula itself, it only
+   * projects the given numbers. Defaults to "no coupon" for call sites
+   * that don't apply (there are none in practice; every real CartService
+   * entrypoint revalidates before mapping).
    */
   toResponse(
     order: OrderEntity,
     optionLabelsByVariantId: Map<string, VariantOptionLabel[]>,
+    pricing: CouponPricingInput = NO_COUPON,
   ): CartResponseDto {
     const items: CartItemResponseDto[] = order.items.map((item) => {
       const product = item.product;
@@ -67,11 +93,25 @@ export class CartMapper {
     const totalQuantity = items.reduce((sum, i) => sum + i.quantity, 0);
     const subtotal = items.reduce((sum, i) => sum + i.lineTotal, 0);
 
+    const hasCoupon = Boolean(order.couponId) && !pricing.couponRemoved;
+    const appliedCoupon = hasCoupon
+      ? {
+          code: order.couponCodeSnapshot as string,
+          name: order.couponNameSnapshot,
+          discountType: order.couponDiscountTypeSnapshot!,
+          discountValue: order.couponDiscountValueSnapshot as number,
+        }
+      : null;
+
     return {
       cartId: order.id,
       items,
       totalQuantity,
       subtotal,
+      discountAmount: pricing.discountAmount,
+      total: subtotal - pricing.discountAmount,
+      appliedCoupon,
+      couponRemovedReason: pricing.removedReason,
       currency: 'VND',
       updatedAt: order.updatedAt,
     };
