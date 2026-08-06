@@ -5,10 +5,13 @@ import { cartApi } from "@/lib/api/cart";
 import { queryKeys } from "@/lib/api/query-keys";
 import type { Cart } from "@/types/cart";
 
+/** See use-update-cart-item.ts's recomputeTotals — same best-effort
+ * discountAmount carry-forward, reconciled by onSettled's invalidate. */
 function recomputeTotals(cart: Cart): Cart {
   const totalQuantity = cart.items.reduce((sum, i) => sum + i.quantity, 0);
   const subtotal = cart.items.reduce((sum, i) => sum + i.lineTotal, 0);
-  return { ...cart, totalQuantity, subtotal };
+  const discountAmount = Math.min(cart.discountAmount, subtotal);
+  return { ...cart, totalQuantity, subtotal, discountAmount, total: subtotal - discountAmount };
 }
 
 export function useRemoveCartItem() {

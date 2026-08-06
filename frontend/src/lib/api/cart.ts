@@ -1,5 +1,6 @@
 import { apiClient } from "@/lib/api/client";
 import type { AddCartItemPayload, Cart } from "@/types/cart";
+import type { CouponPreviewResult } from "@/types/coupon";
 
 const IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
@@ -35,5 +36,26 @@ export const cartApi = {
 
   async removeItem(itemId: string): Promise<void> {
     await apiClient.delete(`/cart/items/${encodeURIComponent(itemId)}`);
+  },
+
+  /** POST /cart/coupon/preview — never mutates. Payload is only `{code}`. */
+  async previewCoupon(code: string): Promise<CouponPreviewResult> {
+    const response = await apiClient.post<CouponPreviewResult>(
+      "/cart/coupon/preview",
+      { code },
+    );
+    return response.data;
+  },
+
+  /** PUT /cart/coupon — applies or replaces. Payload is only `{code}`. */
+  async applyCoupon(code: string): Promise<Cart> {
+    const response = await apiClient.put<Cart>("/cart/coupon", { code });
+    return response.data;
+  },
+
+  /** DELETE /cart/coupon — idempotent, no body. */
+  async removeCoupon(): Promise<Cart> {
+    const response = await apiClient.delete<Cart>("/cart/coupon");
+    return response.data;
   },
 };

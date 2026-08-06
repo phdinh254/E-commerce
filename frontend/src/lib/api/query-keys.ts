@@ -20,5 +20,8 @@ export const queryKeys = {
   cart: {
     detail: ["cart"] as const,
   },
+  coupons: {
+    featured: (limit?: number) => ["coupons", "featured", limit ?? null] as const,
+  },
   admin: { resource: (name: string) => ["admin", name] as const },
 };

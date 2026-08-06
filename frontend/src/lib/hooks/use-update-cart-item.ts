@@ -10,10 +10,19 @@ interface UpdateVars {
   quantity: number;
 }
 
+/**
+ * Recomputes quantity/subtotal client-side for instant feedback.
+ * `discountAmount` is left as-is (best-effort estimate) — a coupon can
+ * become invalid or change amount as subtotal shifts, and only the server
+ * knows the real answer; `onSettled`'s invalidate reconciles it shortly
+ * after. `total` is derived from the (possibly stale) discountAmount so
+ * the displayed number never contradicts itself mid-flight.
+ */
 function recomputeTotals(cart: Cart): Cart {
   const totalQuantity = cart.items.reduce((sum, i) => sum + i.quantity, 0);
   const subtotal = cart.items.reduce((sum, i) => sum + i.lineTotal, 0);
-  return { ...cart, totalQuantity, subtotal };
+  const discountAmount = Math.min(cart.discountAmount, subtotal);
+  return { ...cart, totalQuantity, subtotal, discountAmount, total: subtotal - discountAmount };
 }
 
 /**
