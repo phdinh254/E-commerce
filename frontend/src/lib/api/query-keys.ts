@@ -23,5 +23,8 @@ export const queryKeys = {
   coupons: {
     featured: (limit?: number) => ["coupons", "featured", limit ?? null] as const,
   },
+  payments: {
+    status: (orderId: string) => ["payments", "status", orderId] as const,
+  },
   admin: { resource: (name: string) => ["admin", name] as const },
 };
