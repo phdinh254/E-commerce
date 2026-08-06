@@ -3,6 +3,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import type { EntityManager } from 'typeorm';
 import { CartService } from './cart.service';
 import { CartRepository } from './cart.repository';
 import { IdempotencyRepository } from './idempotency.repository';
@@ -82,18 +83,21 @@ const CART_RESPONSE: CartResponseDto = {
 };
 
 describe('CartService', () => {
+  // `runInTransaction` is generic (<T>(fn) => Promise<T>) — jest.Mocked's
+  // mapped type can't be satisfied by a plain jest.fn() mock, so it's typed
+  // separately here as a plain jest.Mock rather than forced through the
+  // same mapped-type machinery as the other (non-generic) methods.
   let cartRepository: jest.Mocked<
     Pick<
       CartRepository,
       | 'findActiveCartWithItems'
       | 'getOrCreateActiveCart'
-      | 'runInTransaction'
       | 'addOrIncrementItem'
       | 'findItemForUser'
       | 'updateItemQuantityForUser'
       | 'deleteItemForUser'
     >
-  >;
+  > & { runInTransaction: jest.Mock };
   let idempotencyRepository: jest.Mocked<
     Pick<IdempotencyRepository, 'insertPlaceholder' | 'recordResponse'>
   >;
@@ -106,19 +110,21 @@ describe('CartService', () => {
     >
   >;
   let service: CartService;
-  let fakeManager: { getRepository: jest.Mock };
+  let fakeManager: EntityManager;
 
   beforeEach(() => {
     fakeManager = {
       getRepository: jest.fn().mockReturnValue({
         findOne: jest.fn().mockResolvedValue(buildOrder({ items: [] })),
       }),
-    };
+    } as unknown as EntityManager;
 
     cartRepository = {
       findActiveCartWithItems: jest.fn(),
       getOrCreateActiveCart: jest.fn(),
-      runInTransaction: jest.fn((fn) => fn(fakeManager)),
+      runInTransaction: jest.fn((fn: (manager: unknown) => unknown) =>
+        fn(fakeManager),
+      ),
       addOrIncrementItem: jest.fn(),
       findItemForUser: jest.fn(),
       updateItemQuantityForUser: jest.fn(),
