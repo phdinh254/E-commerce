@@ -65,6 +65,6 @@ import { ProductImagesController } from './images/product-images.controller';
     ProductImagesRepository,
     ProductImagesService,
   ],
-  exports: [ProductsService],
+  exports: [ProductsService, ProductVariantsService],
 })
 export class ProductsModule {}

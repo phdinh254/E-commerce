@@ -250,6 +250,29 @@ export class ProductVariantsService {
     };
   }
 
+  /** Raw entity lookup for cross-module callers (Cart) that need
+   * price/stock/isActive/productId directly — no response-DTO mapping. */
+  findRawById(id: string): Promise<ProductVariantEntity | null> {
+    return this.variantsRepository.findById(id);
+  }
+
+  /** Batched option-value labels for many variant ids at once — used by
+   * Cart to avoid one query per cart line. See
+   * ProductVariantsRepository.findManyByIdsWithOptionValues. */
+  findManyByIdsWithOptionValues(variantIds: string[]): Promise<
+    {
+      variant: ProductVariantEntity;
+      optionValues: {
+        optionId: string;
+        optionName: string;
+        valueId: string;
+        value: string;
+      }[];
+    }[]
+  > {
+    return this.variantsRepository.findManyByIdsWithOptionValues(variantIds);
+  }
+
   private variantNotFound(): NotFoundException {
     return new NotFoundException({
       code: 'PRODUCT_VARIANT_NOT_FOUND',

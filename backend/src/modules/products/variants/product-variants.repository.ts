@@ -58,6 +58,81 @@ export class ProductVariantsRepository {
   }
 
   /**
+   * Batched by variant id (not per-product) so a cart with lines from many
+   * different products can resolve option-value labels in one round trip
+   * instead of one query per line — same N+1-avoidance shape as
+   * findManyWithOptionValues, just keyed differently for the Cart module's
+   * access pattern.
+   */
+  async findManyByIdsWithOptionValues(
+    variantIds: string[],
+  ): Promise<VariantWithOptionValues[]> {
+    if (variantIds.length === 0) return [];
+
+    const variants = await this.variantsRepository.find({
+      where: { id: In(variantIds) },
+    });
+    if (variants.length === 0) return [];
+
+    const foundIds = variants.map((v) => v.id);
+    const joinRows = await this.joinRepository.find({
+      where: { variantId: In(foundIds) },
+    });
+
+    const optionValueIds = [...new Set(joinRows.map((j) => j.optionValueId))];
+    const optionIds = [...new Set(joinRows.map((j) => j.optionId))];
+
+    const [values, options] = await Promise.all([
+      optionValueIds.length
+        ? this.optionValuesRepository.find({
+            where: { id: In(optionValueIds) },
+          })
+        : Promise.resolve([]),
+      optionIds.length
+        ? this.optionsRepository.find({ where: { id: In(optionIds) } })
+        : Promise.resolve([]),
+    ]);
+    const valueById = new Map(values.map((v) => [v.id, v]));
+    const optionById = new Map(options.map((o) => [o.id, o]));
+
+    const joinsByVariant = new Map<string, ProductVariantOptionValueEntity[]>();
+    for (const row of joinRows) {
+      const bucket = joinsByVariant.get(row.variantId) ?? [];
+      bucket.push(row);
+      joinsByVariant.set(row.variantId, bucket);
+    }
+
+    return variants.map((variant) => {
+      const rows = joinsByVariant.get(variant.id) ?? [];
+      const optionValues = rows
+        .map((row) => {
+          const option = optionById.get(row.optionId);
+          const value = valueById.get(row.optionValueId);
+          return {
+            optionId: row.optionId,
+            optionName: option?.name ?? '',
+            optionDisplayOrder: option?.displayOrder ?? 0,
+            valueId: row.optionValueId,
+            value: value?.value ?? '',
+          };
+        })
+        .sort(
+          (a, b) =>
+            a.optionDisplayOrder - b.optionDisplayOrder ||
+            a.optionId.localeCompare(b.optionId),
+        )
+        .map(({ optionId, optionName, valueId, value }) => ({
+          optionId,
+          optionName,
+          valueId,
+          value,
+        }));
+
+      return { variant, optionValues };
+    });
+  }
+
+  /**
    * Inserts the variant row and its option-value join rows in one
    * transaction — a failure inserting any join row rolls back the variant
    * row too, so a variant is never left committed with a partial/missing

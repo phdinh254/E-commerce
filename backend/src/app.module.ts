@@ -17,6 +17,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { AddressesModule } from './modules/addresses/addresses.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ProductsModule } from './modules/products/products.module';
+import { CartModule } from './modules/cart/cart.module';
 import { HealthModule } from './modules/health/health.module';
 import { RedisConfig } from './config/configuration';
 
@@ -59,6 +60,7 @@ import { RedisConfig } from './config/configuration';
     AddressesModule,
     CategoriesModule,
     ProductsModule,
+    CartModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
