@@ -44,6 +44,11 @@ export enum CouponDiscountType {
 @Index('IDX_coupons_is_active', ['isActive'])
 @Index('IDX_coupons_applicable_category_id', ['applicableCategoryId'])
 @Index('IDX_coupons_applicable_product_id', ['applicableProductId'])
+@Index('IDX_coupons_is_featured_featured_order', [
+  'isFeatured',
+  'featuredOrder',
+])
+@Check('CHK_coupons_featured_order_non_negative', '"featured_order" >= 0')
 @Check(
   'CHK_coupons_discount_value_valid_for_type',
   `("discount_type" = 'PERCENTAGE' AND "discount_value" > 0 AND "discount_value" <= 100) OR ("discount_type" = 'FIXED' AND "discount_value" > 0)`,
@@ -76,6 +81,14 @@ export class CouponEntity {
   })
   @Column({ type: 'varchar', length: 50 })
   code: string;
+
+  /** Ch16 gap-fill (Ch12 entity never had this) — nullable so existing seed
+   * rows stay valid; used for featured/applied-coupon display. */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  name: string | null;
+
+  @Column({ type: 'varchar', length: 1000, nullable: true })
+  description: string | null;
 
   @Column({
     name: 'discount_type',
@@ -124,6 +137,12 @@ export class CouponEntity {
   @ManyToOne(() => ProductEntity, { nullable: true, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'applicable_product_id' })
   applicableProduct: ProductEntity | null;
+
+  @Column({ name: 'is_featured', type: 'boolean', default: false })
+  isFeatured: boolean;
+
+  @Column({ name: 'featured_order', type: 'integer', default: 0 })
+  featuredOrder: number;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

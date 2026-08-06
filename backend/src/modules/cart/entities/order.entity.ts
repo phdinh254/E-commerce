@@ -11,6 +11,10 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { UserEntity } from '../../users/entities/user.entity';
+import {
+  CouponDiscountType,
+  CouponEntity,
+} from '../../coupons/entities/coupon.entity';
 import { OrderStatus } from '../enums/order-status.enum';
 import { OrderItemEntity } from './order-item.entity';
 
@@ -36,8 +40,10 @@ import { OrderItemEntity } from './order-item.entity';
   unique: true,
   synchronize: false,
 } as unknown as { synchronize: false })
+@Index('IDX_orders_coupon_id', ['couponId'])
 @Check('CHK_orders_subtotal_amount_non_negative', '"subtotal_amount" >= 0')
 @Check('CHK_orders_total_amount_non_negative', '"total_amount" >= 0')
+@Check('CHK_orders_discount_amount_non_negative', '"discount_amount" >= 0')
 export class OrderEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -57,6 +63,54 @@ export class OrderEntity {
 
   @Column({ name: 'total_amount', type: 'integer', default: 0 })
   totalAmount: number;
+
+  @Column({ name: 'coupon_id', type: 'uuid', nullable: true })
+  couponId: string | null;
+
+  @ManyToOne(() => CouponEntity, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'coupon_id' })
+  coupon: CouponEntity | null;
+
+  /**
+   * Snapshot fields — mirrored from the live Coupon at apply-time and kept
+   * in sync by CartPricingService.revalidateCoupon on every mutation while
+   * status=CART. A later checkout chapter freezes these permanently at
+   * order confirmation (Ch16-B159's redeemForOrder) so a historical order's
+   * numbers never depend on a Coupon row that can still be edited.
+   */
+  @Column({
+    name: 'coupon_code_snapshot',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  couponCodeSnapshot: string | null;
+
+  @Column({
+    name: 'coupon_name_snapshot',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  couponNameSnapshot: string | null;
+
+  @Column({
+    name: 'coupon_discount_type_snapshot',
+    type: 'enum',
+    enum: CouponDiscountType,
+    nullable: true,
+  })
+  couponDiscountTypeSnapshot: CouponDiscountType | null;
+
+  @Column({
+    name: 'coupon_discount_value_snapshot',
+    type: 'integer',
+    nullable: true,
+  })
+  couponDiscountValueSnapshot: number | null;
+
+  @Column({ name: 'discount_amount', type: 'integer', default: 0 })
+  discountAmount: number;
 
   @OneToMany(() => OrderItemEntity, (item) => item.order)
   items: OrderItemEntity[];
