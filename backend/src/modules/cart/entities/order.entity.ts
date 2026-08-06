@@ -112,6 +112,72 @@ export class OrderEntity {
   @Column({ name: 'discount_amount', type: 'integer', default: 0 })
   discountAmount: number;
 
+  /**
+   * Shipping snapshot — AddressesModule is entity-only (no service yet), so
+   * Checkout (Ch17) accepts these fields directly on the request DTO and
+   * freezes them here instead of depending on an unfinished module. Field
+   * names mirror AddressEntity's own columns.
+   */
+  @Column({
+    name: 'shipping_recipient_name',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  shippingRecipientName: string | null;
+
+  @Column({
+    name: 'shipping_phone_number',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  shippingPhoneNumber: string | null;
+
+  @Column({
+    name: 'shipping_province',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  shippingProvince: string | null;
+
+  @Column({
+    name: 'shipping_district',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  shippingDistrict: string | null;
+
+  @Column({
+    name: 'shipping_ward',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  shippingWard: string | null;
+
+  @Column({
+    name: 'shipping_street_address',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  shippingStreetAddress: string | null;
+
+  @Column({
+    name: 'shipping_note',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
+  shippingNote: string | null;
+
+  /** When the order left CART (COD/PayOS placement). Null while still a cart. */
+  @Column({ name: 'placed_at', type: 'timestamptz', nullable: true })
+  placedAt: Date | null;
+
   @OneToMany(() => OrderItemEntity, (item) => item.order)
   items: OrderItemEntity[];
 
