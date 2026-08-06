@@ -73,6 +73,23 @@ export interface SupabaseConfig {
   signedUrlTtlSeconds: number;
 }
 
+/**
+ * PayOS is optional, mirroring GoogleOAuthConfig's `isConfigured` pattern:
+ * `enabled` gates whether the gateway/checkout endpoints actually call
+ * PayOS. When disabled, `/checkout/payos` responds 503 instead of
+ * starting a broken flow — never silently runs with missing credentials.
+ */
+export interface PayOsConfig {
+  enabled: boolean;
+  clientId: string;
+  apiKey: string;
+  checksumKey: string;
+  returnUrl: string;
+  cancelUrl: string;
+  requestTimeoutMs: number;
+  syncCooldownSeconds: number;
+}
+
 export type LogLevel =
   'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
 
@@ -174,6 +191,22 @@ export default () => ({
     level:
       (process.env.LOG_LEVEL as LogLevel | undefined) ??
       defaultLogLevel(process.env.NODE_ENV ?? 'development'),
+  },
+  payos: {
+    enabled: process.env.PAYOS_ENABLED === 'true',
+    clientId: process.env.PAYOS_CLIENT_ID ?? '',
+    apiKey: process.env.PAYOS_API_KEY ?? '',
+    checksumKey: process.env.PAYOS_CHECKSUM_KEY ?? '',
+    returnUrl: process.env.PAYOS_RETURN_URL ?? '',
+    cancelUrl: process.env.PAYOS_CANCEL_URL ?? '',
+    requestTimeoutMs: parseInt(
+      process.env.PAYOS_REQUEST_TIMEOUT_MS ?? '15000',
+      10,
+    ),
+    syncCooldownSeconds: parseInt(
+      process.env.PAYOS_SYNC_COOLDOWN_SECONDS ?? '10',
+      10,
+    ),
   },
   productCache: {
     searchTtlSeconds: parseInt(

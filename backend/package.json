@@ -43,6 +43,7 @@
     "@nestjs/swagger": "^11.4.6",
     "@nestjs/throttler": "^6.5.0",
     "@nestjs/typeorm": "^11.0.3",
+    "@payos/node": "^2.0.5",
     "@supabase/supabase-js": "^2.111.0",
     "argon2": "^0.45.1",
     "bullmq": "^5.81.3",

@@ -67,6 +67,39 @@ export const envValidationSchema = Joi.object({
   }),
   SUPABASE_SIGNED_URL_TTL_SECONDS: Joi.number().integer().min(1).default(3600),
 
+  // PayOS is optional (mirrors Google OAuth's pattern): PAYOS_ENABLED
+  // gates it explicitly. When enabled, credentials + return/cancel URL
+  // become required so production never silently runs with missing
+  // config; when disabled (default in dev/test), the app still boots.
+  PAYOS_ENABLED: Joi.boolean().default(false),
+  PAYOS_CLIENT_ID: Joi.string().allow('').when('PAYOS_ENABLED', {
+    is: true,
+    then: Joi.string().required(),
+    otherwise: Joi.optional(),
+  }),
+  PAYOS_API_KEY: Joi.string().allow('').when('PAYOS_ENABLED', {
+    is: true,
+    then: Joi.string().required(),
+    otherwise: Joi.optional(),
+  }),
+  PAYOS_CHECKSUM_KEY: Joi.string().allow('').when('PAYOS_ENABLED', {
+    is: true,
+    then: Joi.string().required(),
+    otherwise: Joi.optional(),
+  }),
+  PAYOS_RETURN_URL: Joi.string().uri().allow('').when('PAYOS_ENABLED', {
+    is: true,
+    then: Joi.string().uri().required(),
+    otherwise: Joi.optional(),
+  }),
+  PAYOS_CANCEL_URL: Joi.string().uri().allow('').when('PAYOS_ENABLED', {
+    is: true,
+    then: Joi.string().uri().required(),
+    otherwise: Joi.optional(),
+  }),
+  PAYOS_REQUEST_TIMEOUT_MS: Joi.number().integer().min(1).default(15000),
+  PAYOS_SYNC_COOLDOWN_SECONDS: Joi.number().integer().min(1).default(10),
+
   PRODUCT_SEARCH_CACHE_TTL_SECONDS: Joi.number().integer().min(1).default(60),
   PRODUCT_FEATURED_CACHE_TTL_SECONDS: Joi.number()
     .integer()
