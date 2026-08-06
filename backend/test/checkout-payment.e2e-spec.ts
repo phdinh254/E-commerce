@@ -27,15 +27,6 @@ describe('Checkout + Payment (e2e)', () => {
   let redisService: RedisService;
   let fakeGateway: FakePayOsGateway;
 
-  const SHIPPING = {
-    shippingRecipientName: 'Nguyen Van A',
-    shippingPhoneNumber: '0912345678',
-    shippingProvince: 'Ha Noi',
-    shippingDistrict: 'Cau Giay',
-    shippingWard: 'Dich Vong',
-    shippingStreetAddress: '123 Xuan Thuy',
-  };
-
   beforeAll(async () => {
     fakeGateway = new FakePayOsGateway();
     app = await createTestApp((builder) =>
@@ -132,31 +123,56 @@ describe('Checkout + Payment (e2e)', () => {
       .send({ productId, quantity });
   }
 
-  function checkoutCodReq(token: string, idempotencyKey = randomUUID()) {
+  function checkoutCodReq(
+    token: string,
+    addressId: string,
+    idempotencyKey = randomUUID(),
+  ) {
     return request(server())
       .post('/api/v1/checkout/cod')
       .set('Authorization', `Bearer ${token}`)
       .set('Idempotency-Key', idempotencyKey)
-      .send(SHIPPING);
+      .send({ addressId });
   }
 
-  function checkoutPayOsReq(token: string, idempotencyKey = randomUUID()) {
+  function checkoutPayOsReq(
+    token: string,
+    addressId: string,
+    idempotencyKey = randomUUID(),
+  ) {
     return request(server())
       .post('/api/v1/checkout/payos')
       .set('Authorization', `Bearer ${token}`)
       .set('Idempotency-Key', idempotencyKey)
-      .send(SHIPPING);
+      .send({ addressId });
+  }
+
+  async function createAddress(token: string): Promise<string> {
+    const res = await request(server())
+      .post('/api/v1/profile/addresses')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        recipientName: 'Nguyen Van A',
+        phoneNumber: '0912345678',
+        province: 'Ha Noi',
+        district: 'Cau Giay',
+        ward: 'Dich Vong',
+        streetAddress: '123 Xuan Thuy',
+      });
+    return res.body.id as string;
   }
 
   async function setupCartWithOneItem(): Promise<{
     token: string;
     productPrice: number;
+    addressId: string;
   }> {
     const adminToken = await registerAndLogin(UserRole.ADMIN);
     const token = await registerAndLogin();
     const product = await createProduct(adminToken);
     await addToCart(token, product.id, 2);
-    return { token, productPrice: product.price };
+    const addressId = await createAddress(token);
+    return { token, productPrice: product.price, addressId };
   }
 
   function verifiedWebhook(overrides: Partial<WebhookData> = {}): Webhook {
@@ -187,9 +203,9 @@ describe('Checkout + Payment (e2e)', () => {
   // -------------------------------------------------------------------
   describe('POST /api/v1/checkout/cod', () => {
     it('confirms the order as PAID and creates a paid COD payment', async () => {
-      const { token, productPrice } = await setupCartWithOneItem();
+      const { token, productPrice, addressId } = await setupCartWithOneItem();
 
-      const res = await checkoutCodReq(token);
+      const res = await checkoutCodReq(token, addressId);
 
       expect(res.status).toBe(200);
       expect(res.body.paymentMethod).toBe('COD');
@@ -215,31 +231,41 @@ describe('Checkout + Payment (e2e)', () => {
 
     it('400s on an empty cart', async () => {
       const token = await registerAndLogin();
+      const addressId = await createAddress(token);
 
-      const res = await checkoutCodReq(token);
+      const res = await checkoutCodReq(token, addressId);
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe('CART_EMPTY');
     });
 
-    it('400s when the Idempotency-Key header is missing', async () => {
+    it('404s with an address that does not exist or is not owned', async () => {
       const { token } = await setupCartWithOneItem();
+
+      const res = await checkoutCodReq(token, randomUUID());
+
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe('ADDRESS_NOT_FOUND');
+    });
+
+    it('400s when the Idempotency-Key header is missing', async () => {
+      const { token, addressId } = await setupCartWithOneItem();
 
       const res = await request(server())
         .post('/api/v1/checkout/cod')
         .set('Authorization', `Bearer ${token}`)
-        .send(SHIPPING);
+        .send({ addressId });
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe('IDEMPOTENCY_KEY_REQUIRED');
     });
 
     it('replays the same response on a retried request instead of double-charging', async () => {
-      const { token } = await setupCartWithOneItem();
+      const { token, addressId } = await setupCartWithOneItem();
       const key = randomUUID();
 
-      const first = await checkoutCodReq(token, key);
-      const second = await checkoutCodReq(token, key);
+      const first = await checkoutCodReq(token, addressId, key);
+      const second = await checkoutCodReq(token, addressId, key);
 
       expect(second.status).toBe(200);
       expect(second.body.orderId).toBe(first.body.orderId);
@@ -253,10 +279,10 @@ describe('Checkout + Payment (e2e)', () => {
     });
 
     it('a second checkout attempt without a cart 400s (no double order)', async () => {
-      const { token } = await setupCartWithOneItem();
-      await checkoutCodReq(token);
+      const { token, addressId } = await setupCartWithOneItem();
+      await checkoutCodReq(token, addressId);
 
-      const res = await checkoutCodReq(token, randomUUID());
+      const res = await checkoutCodReq(token, addressId, randomUUID());
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe('CART_EMPTY');
@@ -267,7 +293,7 @@ describe('Checkout + Payment (e2e)', () => {
     });
 
     it('finalizes coupon usage exactly once at COD confirmation', async () => {
-      const { token } = await setupCartWithOneItem();
+      const { token, addressId } = await setupCartWithOneItem();
       const coupon = await dataSource.getRepository(CouponEntity).save(
         dataSource.getRepository(CouponEntity).create({
           code: unique('SALE'),
@@ -287,7 +313,7 @@ describe('Checkout + Payment (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ code: coupon.code });
 
-      const res = await checkoutCodReq(token);
+      const res = await checkoutCodReq(token, addressId);
 
       expect(res.status).toBe(200);
       const redemptions = await dataSource.query(
@@ -307,9 +333,9 @@ describe('Checkout + Payment (e2e)', () => {
   // -------------------------------------------------------------------
   describe('POST /api/v1/checkout/payos', () => {
     it('moves the order to PENDING_PAYMENT and returns a checkoutUrl from the fake gateway', async () => {
-      const { token, productPrice } = await setupCartWithOneItem();
+      const { token, productPrice, addressId } = await setupCartWithOneItem();
 
-      const res = await checkoutPayOsReq(token);
+      const res = await checkoutPayOsReq(token, addressId);
 
       expect(res.status).toBe(200);
       expect(res.body.paymentMethod).toBe('PAYOS');
@@ -332,10 +358,10 @@ describe('Checkout + Payment (e2e)', () => {
     });
 
     it('marks the payment FAILED and surfaces an error when the gateway rejects link creation', async () => {
-      const { token } = await setupCartWithOneItem();
+      const { token, addressId } = await setupCartWithOneItem();
       fakeGateway.failNextCreate = true;
 
-      const res = await checkoutPayOsReq(token);
+      const res = await checkoutPayOsReq(token, addressId);
 
       expect(res.status).toBeGreaterThanOrEqual(500);
       // beforeEach truncates `payments` — this test's checkout call is the
@@ -347,11 +373,11 @@ describe('Checkout + Payment (e2e)', () => {
     });
 
     it('on Idempotency-Key retry, does not call the gateway again and returns the current checkoutUrl', async () => {
-      const { token } = await setupCartWithOneItem();
+      const { token, addressId } = await setupCartWithOneItem();
       const key = randomUUID();
 
-      const first = await checkoutPayOsReq(token, key);
-      const second = await checkoutPayOsReq(token, key);
+      const first = await checkoutPayOsReq(token, addressId, key);
+      const second = await checkoutPayOsReq(token, addressId, key);
 
       expect(second.status).toBe(200);
       expect(second.body.paymentId).toBe(first.body.paymentId);
@@ -369,8 +395,8 @@ describe('Checkout + Payment (e2e)', () => {
       orderCode: number;
       amount: number;
     }> {
-      const { token } = await setupCartWithOneItem();
-      const res = await checkoutPayOsReq(token);
+      const { token, addressId } = await setupCartWithOneItem();
+      const res = await checkoutPayOsReq(token, addressId);
       const payment = await dataSource.query(
         'SELECT * FROM payments WHERE id = $1',
         [res.body.paymentId],
@@ -498,8 +524,8 @@ describe('Checkout + Payment (e2e)', () => {
     });
 
     it('404s when the order belongs to a different user (IDOR)', async () => {
-      const { token } = await setupCartWithOneItem();
-      const orderRes = await checkoutCodReq(token);
+      const { token, addressId } = await setupCartWithOneItem();
+      const orderRes = await checkoutCodReq(token, addressId);
       const otherToken = await registerAndLogin();
 
       const res = await request(server())
@@ -510,8 +536,8 @@ describe('Checkout + Payment (e2e)', () => {
     });
 
     it('reports terminal PAID status for the owner', async () => {
-      const { token } = await setupCartWithOneItem();
-      const orderRes = await checkoutCodReq(token);
+      const { token, addressId } = await setupCartWithOneItem();
+      const orderRes = await checkoutCodReq(token, addressId);
 
       const res = await request(server())
         .get(`/api/v1/orders/${orderRes.body.orderId}/payment-status`)
@@ -525,8 +551,8 @@ describe('Checkout + Payment (e2e)', () => {
 
   describe('POST /api/v1/payments/:paymentId/sync', () => {
     it('404s when the payment belongs to a different user (IDOR)', async () => {
-      const { token } = await setupCartWithOneItem();
-      const checkoutRes = await checkoutPayOsReq(token);
+      const { token, addressId } = await setupCartWithOneItem();
+      const checkoutRes = await checkoutPayOsReq(token, addressId);
       const otherToken = await registerAndLogin();
 
       const res = await request(server())
@@ -537,8 +563,8 @@ describe('Checkout + Payment (e2e)', () => {
     });
 
     it('syncs PAID from the gateway when PayOS confirms it out-of-band', async () => {
-      const { token } = await setupCartWithOneItem();
-      const checkoutRes = await checkoutPayOsReq(token);
+      const { token, addressId } = await setupCartWithOneItem();
+      const checkoutRes = await checkoutPayOsReq(token, addressId);
       const payment = await dataSource.query(
         'SELECT * FROM payments WHERE id = $1',
         [checkoutRes.body.paymentId],

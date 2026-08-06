@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
 import { createHash } from 'crypto';
 import { CheckoutService } from './checkout.service';
@@ -13,19 +17,38 @@ import { PaymentProvider } from '../payments/enums/payment-provider.enum';
 import { PaymentStatus } from '../payments/enums/payment-status.enum';
 import type { PaymentGateway } from '../payments/payos-gateway.interface';
 import { CouponsService } from '../coupons/coupons.service';
+import { AddressesService } from '../addresses/addresses.service';
+import { AddressEntity } from '../addresses/entities/address.entity';
 import { ClockService } from '../../common/clock/clock.service';
 import { CreateCheckoutDto } from '../payments/dto/create-checkout.dto';
+
+const ADDRESS_ID = 'address-1';
 
 function buildDto(
   overrides: Partial<CreateCheckoutDto> = {},
 ): CreateCheckoutDto {
   return {
-    shippingRecipientName: 'Nguyen Van A',
-    shippingPhoneNumber: '0912345678',
-    shippingProvince: 'Ha Noi',
-    shippingDistrict: 'Cau Giay',
-    shippingWard: 'Dich Vong',
-    shippingStreetAddress: '123 Xuan Thuy',
+    addressId: ADDRESS_ID,
+    ...overrides,
+  };
+}
+
+function buildAddress(overrides: Partial<AddressEntity> = {}): AddressEntity {
+  return {
+    id: ADDRESS_ID,
+    userId: 'user-1',
+    user: null as unknown as AddressEntity['user'],
+    label: null,
+    recipientName: 'Nguyen Van A',
+    phoneNumber: '0912345678',
+    province: 'Ha Noi',
+    district: 'Cau Giay',
+    ward: 'Dich Vong',
+    streetAddress: '123 Xuan Thuy',
+    isDefault: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    deletedAt: null,
     ...overrides,
   };
 }
@@ -122,6 +145,9 @@ describe('CheckoutService', () => {
     >
   > & { runInTransaction: jest.Mock };
   let couponsService: jest.Mocked<Pick<CouponsService, 'redeemForOrder'>>;
+  let addressesService: jest.Mocked<
+    Pick<AddressesService, 'getOwnedActiveEntityOrThrow'>
+  >;
   let clock: jest.Mocked<Pick<ClockService, 'now'>>;
   let gateway: jest.Mocked<PaymentGateway>;
   let fakeManager: EntityManager;
@@ -168,6 +194,9 @@ describe('CheckoutService', () => {
       ),
     };
     couponsService = { redeemForOrder: jest.fn().mockResolvedValue(undefined) };
+    addressesService = {
+      getOwnedActiveEntityOrThrow: jest.fn().mockResolvedValue(buildAddress()),
+    };
     clock = { now: jest.fn().mockReturnValue(NOW) };
     gateway = {
       createPaymentLink: jest.fn(),
@@ -181,13 +210,14 @@ describe('CheckoutService', () => {
       idempotencyRepository as unknown as IdempotencyRepository,
       paymentsRepository as unknown as PaymentsRepository,
       couponsService as unknown as CouponsService,
+      addressesService as unknown as AddressesService,
       clock,
       gateway,
     );
   });
 
   describe('placeCodOrder', () => {
-    it('confirms the order as PAID synchronously and redeems the coupon once', async () => {
+    it('confirms the order as PAID synchronously, snapshots the resolved address, and redeems the coupon once', async () => {
       idempotencyRepository.insertPlaceholder.mockResolvedValue({
         kind: 'inserted',
         record: { id: 'idem-1' } as never,
@@ -197,13 +227,36 @@ describe('CheckoutService', () => {
 
       const result = await service.placeCodOrder('user-1', buildDto(), 'key-1');
 
+      expect(addressesService.getOwnedActiveEntityOrThrow).toHaveBeenCalledWith(
+        'user-1',
+        ADDRESS_ID,
+      );
       expect(order.status).toBe(OrderStatus.PAID);
       expect(order.totalAmount).toBe(200_000);
+      expect(order.shippingRecipientName).toBe('Nguyen Van A');
+      expect(order.shippingStreetAddress).toBe('123 Xuan Thuy');
       expect(result.paymentMethod).toBe(PaymentProvider.COD);
       expect(result.paymentStatus).toBe(PaymentStatus.PAID);
       expect(result.checkoutUrl).toBeNull();
       expect(couponsService.redeemForOrder).toHaveBeenCalledTimes(1);
       expect(gateway.createPaymentLink).not.toHaveBeenCalled();
+    });
+
+    it('rejects checkout when the address does not exist or is not owned by the user', async () => {
+      idempotencyRepository.insertPlaceholder.mockResolvedValue({
+        kind: 'inserted',
+        record: { id: 'idem-1' } as never,
+      });
+      cartRepository.lockActiveCartWithItemsForUser.mockResolvedValue(
+        buildOrder(),
+      );
+      addressesService.getOwnedActiveEntityOrThrow.mockRejectedValue(
+        new NotFoundException({ code: 'ADDRESS_NOT_FOUND' }),
+      );
+
+      await expect(
+        service.placeCodOrder('user-1', buildDto(), 'key-1'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('rejects checkout when the cart is empty', async () => {
@@ -238,7 +291,7 @@ describe('CheckoutService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('replays the stored response for a repeated Idempotency-Key with the same payload', async () => {
+    it('replays the stored response for a repeated Idempotency-Key with the same payload, without re-checking the address', async () => {
       const dto = buildDto();
       const storedResponse = {
         orderId: 'order-1',
@@ -259,6 +312,9 @@ describe('CheckoutService', () => {
       const result = await service.placeCodOrder('user-1', dto, 'key-1');
 
       expect(result).toEqual(storedResponse);
+      expect(
+        addressesService.getOwnedActiveEntityOrThrow,
+      ).not.toHaveBeenCalled();
       expect(
         cartRepository.lockActiveCartWithItemsForUser,
       ).not.toHaveBeenCalled();
@@ -281,7 +337,7 @@ describe('CheckoutService', () => {
   });
 
   describe('placePayOsOrder', () => {
-    it('commits the PENDING_PAYMENT order/payment, then creates the payment link and persists checkoutUrl', async () => {
+    it('commits the PENDING_PAYMENT order/payment with the resolved address snapshot, then creates the payment link', async () => {
       idempotencyRepository.insertPlaceholder.mockResolvedValue({
         kind: 'inserted',
         record: { id: 'idem-1' } as never,
@@ -307,6 +363,7 @@ describe('CheckoutService', () => {
       );
 
       expect(order.status).toBe(OrderStatus.PENDING_PAYMENT);
+      expect(order.shippingPhoneNumber).toBe('0912345678');
       expect(couponsService.redeemForOrder).not.toHaveBeenCalled();
       expect(gateway.createPaymentLink).toHaveBeenCalledWith(
         expect.objectContaining({ orderCode: 100000001, amount: 200_000 }),
@@ -340,7 +397,7 @@ describe('CheckoutService', () => {
       expect(lockedPayment.failureReason).toBe('PayOS unreachable');
     });
 
-    it('on Idempotency-Key replay, re-reads the current payment instead of calling PayOS again', async () => {
+    it('on Idempotency-Key replay, re-reads the current payment instead of calling PayOS or the address again', async () => {
       const dto = buildDto();
       idempotencyRepository.insertPlaceholder.mockResolvedValue({
         kind: 'existing',
@@ -357,6 +414,9 @@ describe('CheckoutService', () => {
       const result = await service.placePayOsOrder('user-1', dto, 'key-1');
 
       expect(gateway.createPaymentLink).not.toHaveBeenCalled();
+      expect(
+        addressesService.getOwnedActiveEntityOrThrow,
+      ).not.toHaveBeenCalled();
       expect(result.checkoutUrl).toBe('https://pay.payos.vn/web/abc');
     });
   });
@@ -364,12 +424,7 @@ describe('CheckoutService', () => {
 
 function hashOf(dto: CreateCheckoutDto): string {
   const normalized = JSON.stringify({
-    shippingRecipientName: dto.shippingRecipientName,
-    shippingPhoneNumber: dto.shippingPhoneNumber,
-    shippingProvince: dto.shippingProvince,
-    shippingDistrict: dto.shippingDistrict,
-    shippingWard: dto.shippingWard,
-    shippingStreetAddress: dto.shippingStreetAddress,
+    addressId: dto.addressId,
     shippingNote: dto.shippingNote ?? null,
   });
   return createHash('sha256').update(normalized).digest('hex');

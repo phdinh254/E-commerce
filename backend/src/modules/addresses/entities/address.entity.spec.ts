@@ -33,6 +33,11 @@ describe('AddressEntity metadata', () => {
     expect(userIdColumn.options.nullable).toBeFalsy();
   });
 
+  it('has an optional label column', () => {
+    expect(column('label').options.nullable).toBe(true);
+    expect(column('label').options.type).toBe('varchar');
+  });
+
   it('requires recipientName, phoneNumber, and the address fields', () => {
     expect(column('recipientName').options.name).toBe('recipient_name');
     expect(column('recipientName').options.nullable).toBeFalsy();
