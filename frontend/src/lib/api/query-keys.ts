@@ -17,5 +17,8 @@ export const queryKeys = {
     all: ["orders"] as const,
     detail: (id: string) => ["orders", "detail", id] as const,
   },
+  cart: {
+    detail: ["cart"] as const,
+  },
   admin: { resource: (name: string) => ["admin", name] as const },
 };
