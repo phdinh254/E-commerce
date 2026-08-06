@@ -1,15 +1,103 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useProfile } from "@/lib/hooks/use-profile";
+import { useUpdateProfile } from "@/lib/hooks/use-update-profile";
+import { getApiErrorMessage } from "@/lib/api/client";
+
+const profileSchema = z.object({
+  fullName: z
+    .string()
+    .trim()
+    .min(2, "Họ tên phải có ít nhất 2 ký tự.")
+    .max(255, "Họ tên không được vượt quá 255 ký tự."),
+});
+type ProfileValues = z.infer<typeof profileSchema>;
+
+function FieldError({ message }: { message?: string }) {
+  return message ? (
+    <p className="text-sm text-destructive" role="alert">
+      {message}
+    </p>
+  ) : null;
+}
 
 export function ProfileForm() {
-  const [saving, setSaving] = useState(false);
-  async function save(event: React.FormEvent<HTMLFormElement>) { event.preventDefault(); setSaving(true); await new Promise((resolve) => setTimeout(resolve, 500)); setSaving(false); toast.success("Đã lưu thông tin cá nhân trong bản dùng thử."); }
+  const { data: profile, isLoading, isError, error, refetch } = useProfile();
+  const updateProfile = useUpdateProfile();
+
+  const form = useForm<ProfileValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: { fullName: "" },
+  });
+
+  // Initializes from server data once loaded — never resets on a background
+  // refetch afterward (only fires while the form hasn't been touched yet),
+  // so it can't clobber text the user is actively editing.
+  useEffect(() => {
+    if (profile && !form.formState.isDirty) {
+      form.reset({ fullName: profile.fullName });
+    }
+  }, [profile, form]);
+
+  const submit = form.handleSubmit(async (values) => {
+    try {
+      await updateProfile.mutateAsync(values.fullName);
+      toast.success("Đã lưu thông tin cá nhân.");
+      form.reset(values);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    }
+  });
+
+  if (isLoading) {
+    return <div className="h-64 animate-pulse rounded-2xl bg-muted" aria-hidden="true" />;
+  }
+
+  if (isError || !profile) {
+    return (
+      <div className="rounded-2xl border bg-card p-5 sm:p-6">
+        <p className="text-sm text-destructive">{getApiErrorMessage(error)}</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()}>
+          Thử lại
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <form onSubmit={save} className="space-y-5 rounded-2xl border bg-card p-5 sm:p-6"><div><h2 className="text-lg font-semibold">Thông tin cá nhân</h2><p className="mt-1 text-sm text-muted-foreground">Email được quản lý theo tài khoản đăng nhập.</p></div><div className="grid gap-5 sm:grid-cols-2"><div className="space-y-2 sm:col-span-2"><Label htmlFor="profile-name">Họ và tên</Label><Input id="profile-name" defaultValue="Nguyễn Minh Anh" autoComplete="name" /></div><div className="space-y-2 sm:col-span-2"><Label htmlFor="profile-email">Email</Label><Input id="profile-email" defaultValue="minhanh@example.com" disabled /><p className="text-xs text-muted-foreground">Liên hệ bộ phận hỗ trợ nếu bạn cần thay đổi email.</p></div><div className="space-y-2"><Label htmlFor="profile-phone">Số điện thoại</Label><Input id="profile-phone" defaultValue="090 123 4567" inputMode="tel" /></div><div className="space-y-2"><Label htmlFor="profile-birthday">Ngày sinh</Label><Input id="profile-birthday" type="date" defaultValue="1995-05-18" /></div></div><Button type="submit" disabled={saving}>{saving ? "Đang lưu..." : "Lưu thay đổi"}</Button></form>
+    <form onSubmit={submit} className="space-y-5 rounded-2xl border bg-card p-5 sm:p-6" noValidate>
+      <div>
+        <h2 className="text-lg font-semibold">Thông tin cá nhân</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Email được quản lý theo tài khoản đăng nhập.</p>
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="profile-name">Họ và tên</Label>
+          <Input
+            id="profile-name"
+            autoComplete="name"
+            aria-invalid={Boolean(form.formState.errors.fullName)}
+            {...form.register("fullName")}
+          />
+          <FieldError message={form.formState.errors.fullName?.message} />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="profile-email">Email</Label>
+          <Input id="profile-email" value={profile.email} disabled readOnly />
+          <p className="text-xs text-muted-foreground">Liên hệ bộ phận hỗ trợ nếu bạn cần thay đổi email.</p>
+        </div>
+      </div>
+      <Button type="submit" disabled={updateProfile.isPending || !form.formState.isDirty}>
+        {updateProfile.isPending ? "Đang lưu..." : "Lưu thay đổi"}
+      </Button>
+    </form>
   );
 }
