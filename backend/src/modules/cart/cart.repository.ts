@@ -84,6 +84,38 @@ export class CartRepository {
     return existing;
   }
 
+  /**
+   * Checkout entry point — locks the CART order row (pessimistic write, same
+   * row Cart mutations already lock in addOrIncrementItem) so a concurrent
+   * add-item/checkout race serializes instead of checking out a snapshot
+   * that a racing mutation is about to change. Returns null when the user
+   * has no active cart (never checked out) — distinct from "cart exists but
+   * empty", which the caller must check separately via `items.length`.
+   *
+   * Locks the order row WITHOUT joined relations first — Postgres rejects
+   * `FOR UPDATE` on the nullable side of a LEFT JOIN, which is exactly what
+   * `relations` would generate for a one-to-many `items` fetch in the same
+   * query. Items are then fetched unlocked in a second query, same
+   * lock-then-read shape as `addOrIncrementItem`.
+   */
+  async lockActiveCartWithItemsForUser(
+    userId: string,
+    manager: EntityManager,
+  ): Promise<OrderEntity | null> {
+    const order = await manager.getRepository(OrderEntity).findOne({
+      where: { userId, status: OrderStatus.CART },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!order) return null;
+
+    order.items = await manager.getRepository(OrderItemEntity).find({
+      where: { orderId: order.id },
+      relations: { product: true, variant: true },
+      order: { createdAt: 'ASC', id: 'ASC' },
+    });
+    return order;
+  }
+
   /** Runs `fn` in a single transaction — callers that need to combine an
    * idempotency check-and-insert with a cart mutation atomically (so a
    * mid-transaction failure never leaves an orphaned idempotency row) get

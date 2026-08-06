@@ -37,6 +37,11 @@ import { CouponsModule } from '../coupons/coupons.module';
     CartService,
     CartCouponService,
   ],
-  exports: [CartService],
+  exports: [
+    CartService,
+    CartRepository,
+    IdempotencyRepository,
+    CartPricingService,
+  ],
 })
 export class CartModule {}
