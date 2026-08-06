@@ -23,6 +23,8 @@ import { PaymentStatus } from '../payments/enums/payment-status.enum';
 import { PAYMENT_GATEWAY } from '../payments/payos-gateway.interface';
 import type { PaymentGateway } from '../payments/payos-gateway.interface';
 import { CouponsService } from '../coupons/coupons.service';
+import { AddressesService } from '../addresses/addresses.service';
+import { AddressEntity } from '../addresses/entities/address.entity';
 import { ClockService } from '../../common/clock/clock.service';
 import { CreateCheckoutDto } from '../payments/dto/create-checkout.dto';
 import { CheckoutResponseDto } from '../payments/dto/checkout-response.dto';
@@ -45,6 +47,7 @@ export class CheckoutService {
     private readonly idempotencyRepository: IdempotencyRepository,
     private readonly paymentsRepository: PaymentsRepository,
     private readonly couponsService: CouponsService,
+    private readonly addressesService: AddressesService,
     private readonly clock: ClockService,
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
   ) {}
@@ -79,6 +82,15 @@ export class CheckoutService {
           .responseBody as unknown as CheckoutResponseDto;
       }
 
+      // Resolved AFTER the idempotency short-circuit above — a retry of an
+      // already-succeeded checkout must replay the stored response even if
+      // the Address has since been deleted; only a genuinely NEW attempt
+      // needs the address to still exist and be owned by this user.
+      const address = await this.addressesService.getOwnedActiveEntityOrThrow(
+        userId,
+        dto.addressId,
+      );
+
       const order = await this.loadCheckoutableCart(userId, manager);
       const { subtotal, discountAmount } = await this.revalidateAndTotal(
         order,
@@ -87,7 +99,7 @@ export class CheckoutService {
       const total = subtotal - discountAmount;
       const now = this.clock.now();
 
-      this.applyShippingSnapshot(order, dto);
+      this.applyShippingSnapshot(order, address, dto.shippingNote);
       order.subtotalAmount = subtotal;
       order.discountAmount = discountAmount;
       order.totalAmount = total;
@@ -185,6 +197,11 @@ export class CheckoutService {
           return { paymentId: body.paymentId, isNew: false };
         }
 
+        const address = await this.addressesService.getOwnedActiveEntityOrThrow(
+          userId,
+          dto.addressId,
+        );
+
         const order = await this.loadCheckoutableCart(userId, manager);
         const { subtotal, discountAmount } = await this.revalidateAndTotal(
           order,
@@ -193,7 +210,7 @@ export class CheckoutService {
         const total = subtotal - discountAmount;
         const now = this.clock.now();
 
-        this.applyShippingSnapshot(order, dto);
+        this.applyShippingSnapshot(order, address, dto.shippingNote);
         order.subtotalAmount = subtotal;
         order.discountAmount = discountAmount;
         order.totalAmount = total;
@@ -366,17 +383,22 @@ export class CheckoutService {
     return { subtotal, discountAmount: pricing.discountAmount };
   }
 
+  /** Copies the Address as it exists RIGHT NOW into Order's own shipping
+   * columns — an immutable snapshot, not a live reference. Editing or
+   * deleting the Address afterward never changes this Order (see
+   * AddressesService.delete/update — neither touches `orders`). */
   private applyShippingSnapshot(
     order: OrderEntity,
-    dto: CreateCheckoutDto,
+    address: AddressEntity,
+    shippingNote: string | undefined,
   ): void {
-    order.shippingRecipientName = dto.shippingRecipientName;
-    order.shippingPhoneNumber = dto.shippingPhoneNumber;
-    order.shippingProvince = dto.shippingProvince;
-    order.shippingDistrict = dto.shippingDistrict;
-    order.shippingWard = dto.shippingWard;
-    order.shippingStreetAddress = dto.shippingStreetAddress;
-    order.shippingNote = dto.shippingNote ?? null;
+    order.shippingRecipientName = address.recipientName;
+    order.shippingPhoneNumber = address.phoneNumber;
+    order.shippingProvince = address.province;
+    order.shippingDistrict = address.district;
+    order.shippingWard = address.ward;
+    order.shippingStreetAddress = address.streetAddress;
+    order.shippingNote = shippingNote ?? null;
   }
 
   private ensureReplayable(
@@ -399,12 +421,7 @@ export class CheckoutService {
 
   private hashPayload(dto: CreateCheckoutDto): string {
     const normalized = JSON.stringify({
-      shippingRecipientName: dto.shippingRecipientName,
-      shippingPhoneNumber: dto.shippingPhoneNumber,
-      shippingProvince: dto.shippingProvince,
-      shippingDistrict: dto.shippingDistrict,
-      shippingWard: dto.shippingWard,
-      shippingStreetAddress: dto.shippingStreetAddress,
+      addressId: dto.addressId,
       shippingNote: dto.shippingNote ?? null,
     });
     return createHash('sha256').update(normalized).digest('hex');
