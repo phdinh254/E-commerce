@@ -20,13 +20,15 @@ export const TERMINAL_PAYMENT_STATUSES: ReadonlySet<PaymentStatus> = new Set([
   "FAILED",
 ]);
 
+/**
+ * Ch18: `addressId` must reference a saved Address owned by the
+ * authenticated user — the backend resolves and ownership-checks it
+ * server-side (see CheckoutService), never trusting a client-supplied
+ * recipient/phone/street. `shippingNote` is a per-order instruction,
+ * independent of the saved Address's own `label`.
+ */
 export interface CheckoutPayload {
-  shippingRecipientName: string;
-  shippingPhoneNumber: string;
-  shippingProvince: string;
-  shippingDistrict: string;
-  shippingWard: string;
-  shippingStreetAddress: string;
+  addressId: string;
   shippingNote?: string;
 }
 

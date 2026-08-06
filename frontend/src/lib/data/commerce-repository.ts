@@ -1,5 +1,5 @@
-import { adminRows, mockAddresses, mockCategories, mockOrders, mockProducts } from "@/lib/data/mock-data";
-import type { Address, AdminTableRow, Category, Order, Product } from "@/types/commerce";
+import { adminRows, mockCategories, mockOrders, mockProducts } from "@/lib/data/mock-data";
+import type { AdminTableRow, Category, Order, Product } from "@/types/commerce";
 
 export interface ProductFilters {
   query?: string;
@@ -31,9 +31,6 @@ export const commerceRepository = {
   async getOrder(id: string): Promise<Order | undefined> {
     return mockOrders.find((order) => order.id === id);
   },
-  async getAddresses(): Promise<Address[]> {
-    return mockAddresses;
-  },
   async getAdminRows(resource: string): Promise<AdminTableRow[]> {
     return adminRows[resource] ?? [];
   },
@@ -47,4 +44,6 @@ export const commerceDataSource = {
   checkout: "mock" as const,
   orders: "mock" as const,
   admin: "mock" as const,
+  profile: "api" as const,
+  addresses: "api" as const,
 };

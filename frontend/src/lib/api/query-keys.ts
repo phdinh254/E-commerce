@@ -26,5 +26,8 @@ export const queryKeys = {
   payments: {
     status: (orderId: string) => ["payments", "status", orderId] as const,
   },
+  addresses: {
+    all: ["addresses"] as const,
+  },
   admin: { resource: (name: string) => ["admin", name] as const },
 };

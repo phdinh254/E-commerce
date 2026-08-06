@@ -1,10 +1,4 @@
-﻿import type {
-  Address,
-  AdminTableRow,
-  Category,
-  Order,
-  Product,
-} from "@/types/commerce";
+﻿import type { AdminTableRow, Category, Order, Product } from "@/types/commerce";
 
 const policies = [
   { label: "Bảo hành", value: "12 tháng" },
@@ -249,11 +243,6 @@ export const mockOrders: Order[] = [
     discount: 300000,
     total: 4190000,
   },
-];
-
-export const mockAddresses: Address[] = [
-  { id: "address-1", recipientName: "Nguyễn Minh Anh", phoneNumber: "090 123 4567", province: "TP. Hồ Chí Minh", district: "Quận 1", ward: "Bến Nghé", streetAddress: "28 Nguyễn Huệ", isDefault: true },
-  { id: "address-2", recipientName: "Nguyễn Minh Anh", phoneNumber: "090 123 4567", province: "Đà Nẵng", district: "Hải Châu", ward: "Thạch Thang", streetAddress: "16 Quang Trung", isDefault: false },
 ];
 
 export const adminRows: Record<string, AdminTableRow[]> = {

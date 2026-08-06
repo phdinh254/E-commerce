@@ -95,17 +95,6 @@ export interface ApiError {
   timestamp: string;
 }
 
-export interface Address {
-  id: string;
-  recipientName: string;
-  phoneNumber: string;
-  province: string;
-  district: string;
-  ward: string;
-  streetAddress: string;
-  isDefault: boolean;
-}
-
 export interface AdminTableRow {
   id: string;
   primary: string;
