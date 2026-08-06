@@ -9,6 +9,7 @@ import { UserMenu } from "@/components/layout/user-menu";
 import { buttonVariants } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth/auth-provider";
+import { useCart } from "@/lib/hooks/use-cart";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -56,6 +57,29 @@ function MobileAccountLinks() {
   );
 }
 
+export function CartLink() {
+  const { status } = useAuth();
+  // Shares the exact same query key as the Cart page's useCart() — TanStack
+  // Query dedupes this into a single in-flight request, no duplicate fetch
+  // between header and page.
+  const cartQuery = useCart();
+  const totalQuantity = status === "authenticated" ? (cartQuery.data?.totalQuantity ?? 0) : 0;
+  const showBadge = status === "authenticated" && totalQuantity > 0;
+  const badgeLabel = totalQuantity > 99 ? "99+" : String(totalQuantity);
+  const ariaLabel = showBadge ? `Giỏ hàng, ${totalQuantity} sản phẩm` : "Giỏ hàng";
+
+  return (
+    <Link href="/cart" aria-label={ariaLabel} className={cn(buttonVariants({ variant: "ghost", size: "icon-lg" }), "relative")}>
+      <ShoppingBag aria-hidden="true" />
+      {showBadge ? (
+        <span className="absolute right-0.5 top-0.5 grid size-4 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground" aria-hidden="true">
+          {badgeLabel}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
 export function SiteHeader() {
   return (
     <>
@@ -74,10 +98,7 @@ export function SiteHeader() {
           <div className="ml-auto flex items-center gap-1">
             <ThemeToggle />
             <UserMenu />
-            <Link href="/cart" aria-label="Giỏ hàng, 2 sản phẩm" className={cn(buttonVariants({ variant: "ghost", size: "icon-lg" }), "relative")}>
-              <ShoppingBag aria-hidden="true" />
-              <span className="absolute right-0.5 top-0.5 grid size-4 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">2</span>
-            </Link>
+            <CartLink />
             <Sheet>
               <SheetTrigger aria-label="Mở menu" className={cn(buttonVariants({ variant: "ghost", size: "icon-lg" }), "lg:hidden")}><Menu aria-hidden="true" /></SheetTrigger>
               <SheetContent side="right" className="w-[min(88vw,380px)]">

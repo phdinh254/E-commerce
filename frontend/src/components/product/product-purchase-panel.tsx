@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { ShoppingBag } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { QuantitySelector } from "@/components/commerce/quantity-selector";
 import { ProductVariantSelector } from "@/components/product/product-variant-selector";
@@ -14,24 +16,18 @@ import {
 } from "@/lib/product/variant-resolver";
 import type { VariantSelection } from "@/lib/product/variant-resolver";
 import type { ProductDetail, ProductOption, ProductVariant } from "@/types/product-detail";
+import { useAuth } from "@/lib/auth/auth-provider";
+import { useAddCartItem } from "@/lib/hooks/use-add-cart-item";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 const DEFAULT_MAX_QUANTITY_WITHOUT_VARIANTS = 99;
 
 /**
- * Ch14-B132: quantity selector and add-to-cart action.
- *
- * The backend has no Cart module at all yet (audited: no `backend/src/modules/cart`,
- * no cart entity, no cart endpoint anywhere) and building one from scratch
- * requires business decisions this task cannot make unilaterally (guest
- * cart TTL/merge policy beyond the existing generic guest session,
- * idempotency-key convention for the add endpoint, stock re-validation
- * policy at add-time vs. checkout-time) plus a DB migration that can't be
- * run or verified in this environment (no Postgres reachable — `docker ps`
- * returned no containers). Per the task's own explicit fallback, this is
- * reported BỊ CHẶN for persistence rather than faked with localStorage or a
- * toast that lies about success. The quantity selector and variant
- * resolution below are fully real and functional; only the final
- * "persist to a cart" step is blocked.
+ * Ch15-B147: wired to the real Cart API. Guest clicks never call the Cart
+ * API — they navigate to /login with a safe `redirect` back to this exact
+ * product page (consumed by AuthForm via getSafeRedirectPath, already
+ * wired). An authenticated click sends only productId/variantId/quantity;
+ * price is never sent (the backend rejects unknown fields).
  */
 export function ProductPurchasePanel({
   product,
@@ -44,6 +40,10 @@ export function ProductPurchasePanel({
 }) {
   const [selection, setSelection] = useState<VariantSelection>(() => buildInitialSelection(options, variants));
   const [quantity, setQuantity] = useState(1);
+  const router = useRouter();
+  const pathname = usePathname();
+  const { status: authStatus } = useAuth();
+  const addCartItem = useAddCartItem();
 
   const resolvedVariant = useMemo(() => resolveVariant(variants, selection), [variants, selection]);
   const hasVariants = variants.length > 0;
@@ -57,6 +57,24 @@ export function ProductPurchasePanel({
   function handleSelect(optionId: string, valueId: string) {
     setSelection((prev) => ({ ...prev, [optionId]: valueId }));
     setQuantity(1);
+  }
+
+  function handleAddToCart() {
+    if (authStatus !== "authenticated") {
+      router.push(`/login?redirect=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    addCartItem.mutate(
+      {
+        productId: product.id,
+        variantId: resolvedVariant?.id,
+        quantity,
+      },
+      {
+        onSuccess: () => toast.success("Đã thêm vào giỏ hàng."),
+        onError: (error) => toast.error(getApiErrorMessage(error)),
+      },
+    );
   }
 
   return (
@@ -83,16 +101,12 @@ export function ProductPurchasePanel({
         <Button
           size="lg"
           className="w-full"
-          disabled
-          aria-disabled="true"
-          title="Giỏ hàng chưa khả dụng — backend chưa có Cart module (xem ghi chú Ch14-B132)."
+          disabled={soldOut || !selectionComplete || addCartItem.isPending}
+          onClick={handleAddToCart}
         >
           <ShoppingBag aria-hidden="true" />
-          Thêm vào giỏ hàng
+          {addCartItem.isPending ? "Đang thêm..." : "Thêm vào giỏ hàng"}
         </Button>
-        <p className="text-xs text-muted-foreground" role="status">
-          Chức năng giỏ hàng đang được xây dựng và chưa khả dụng ở phiên bản này.
-        </p>
       </div>
 
       {soldOut ? (
