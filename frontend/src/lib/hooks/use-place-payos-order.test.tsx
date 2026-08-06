@@ -13,12 +13,7 @@ beforeEach(() => {
 });
 
 const PAYLOAD: CheckoutPayload = {
-  shippingRecipientName: "Nguyen Van A",
-  shippingPhoneNumber: "0912345678",
-  shippingProvince: "Ha Noi",
-  shippingDistrict: "Cau Giay",
-  shippingWard: "Dich Vong",
-  shippingStreetAddress: "123 Xuan Thuy",
+  addressId: "address-1",
 };
 
 const RESULT: CheckoutResult = {
