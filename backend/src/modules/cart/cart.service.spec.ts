@@ -16,6 +16,7 @@ import { OrderStatus } from './enums/order-status.enum';
 import { ProductEntity } from '../products/entities/product.entity';
 import { ProductVariantEntity } from '../products/variants/entities/product-variant.entity';
 import { CartResponseDto } from './dto/cart-response.dto';
+import { CartPricingService } from './cart-pricing.service';
 
 function buildProduct(overrides: Partial<ProductEntity> = {}): ProductEntity {
   return {
@@ -66,6 +67,13 @@ function buildOrder(overrides: Partial<OrderEntity> = {}): OrderEntity {
     status: OrderStatus.CART,
     subtotalAmount: 0,
     totalAmount: 0,
+    couponId: null,
+    coupon: null,
+    couponCodeSnapshot: null,
+    couponNameSnapshot: null,
+    couponDiscountTypeSnapshot: null,
+    couponDiscountValueSnapshot: null,
+    discountAmount: 0,
     items: [],
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -78,6 +86,10 @@ const CART_RESPONSE: CartResponseDto = {
   items: [],
   totalQuantity: 0,
   subtotal: 0,
+  discountAmount: 0,
+  total: 0,
+  appliedCoupon: null,
+  couponRemovedReason: null,
   currency: 'VND',
   updatedAt: new Date(),
 };
@@ -108,6 +120,9 @@ describe('CartService', () => {
       ProductVariantsService,
       'findRawById' | 'listPublicVariants' | 'findManyByIdsWithOptionValues'
     >
+  >;
+  let cartPricingService: jest.Mocked<
+    Pick<CartPricingService, 'revalidateCoupon'>
   >;
   let service: CartService;
   let fakeManager: EntityManager;
@@ -142,12 +157,21 @@ describe('CartService', () => {
       findManyByIdsWithOptionValues: jest.fn().mockResolvedValue([]),
     };
 
+    cartPricingService = {
+      revalidateCoupon: jest.fn().mockResolvedValue({
+        discountAmount: 0,
+        couponRemoved: false,
+        removedReason: null,
+      }),
+    };
+
     service = new CartService(
       cartRepository as unknown as CartRepository,
       idempotencyRepository as unknown as IdempotencyRepository,
       cartMapper,
       productsService as unknown as ProductsService,
       productVariantsService as unknown as ProductVariantsService,
+      cartPricingService as unknown as CartPricingService,
     );
   });
 
@@ -170,6 +194,7 @@ describe('CartService', () => {
       expect(cartMapper.toResponse).toHaveBeenCalledWith(
         order,
         expect.any(Map),
+        { discountAmount: 0, couponRemoved: false, removedReason: null },
       );
       expect(result).toBe(CART_RESPONSE);
     });
@@ -227,6 +252,66 @@ describe('CartService', () => {
           unitPriceAmount: 100_000,
         }),
       );
+    });
+
+    it('revalidates the applied coupon (using the freshly-loaded order) after adding an item', async () => {
+      idempotencyRepository.insertPlaceholder.mockResolvedValue({
+        kind: 'inserted',
+        record: { id: 'idem-1' } as never,
+      });
+      productsService.getPublicOrThrow.mockResolvedValue(
+        buildProduct({ price: 100_000 }),
+      );
+      productVariantsService.listPublicVariants.mockResolvedValue([]);
+      cartRepository.getOrCreateActiveCart.mockResolvedValue(buildOrder());
+      cartRepository.addOrIncrementItem.mockResolvedValue({
+        kind: 'created',
+        item: {} as OrderItemEntity,
+      });
+      const orderWithCoupon = buildOrder({ couponId: 'coupon-1', items: [] });
+      (fakeManager.getRepository as jest.Mock).mockReturnValue({
+        findOne: jest.fn().mockResolvedValue(orderWithCoupon),
+      });
+      cartPricingService.revalidateCoupon.mockResolvedValue({
+        discountAmount: 9_000,
+        couponRemoved: false,
+        removedReason: null,
+      });
+
+      await service.addItem(
+        'user-1',
+        { productId: 'prod-1', quantity: 1 },
+        'key-1',
+      );
+
+      expect(cartPricingService.revalidateCoupon).toHaveBeenCalledWith(
+        orderWithCoupon,
+        fakeManager,
+      );
+    });
+
+    it('skips coupon revalidation entirely when the cart has no coupon', async () => {
+      idempotencyRepository.insertPlaceholder.mockResolvedValue({
+        kind: 'inserted',
+        record: { id: 'idem-1' } as never,
+      });
+      productsService.getPublicOrThrow.mockResolvedValue(
+        buildProduct({ price: 100_000 }),
+      );
+      productVariantsService.listPublicVariants.mockResolvedValue([]);
+      cartRepository.getOrCreateActiveCart.mockResolvedValue(buildOrder());
+      cartRepository.addOrIncrementItem.mockResolvedValue({
+        kind: 'created',
+        item: {} as OrderItemEntity,
+      });
+
+      await service.addItem(
+        'user-1',
+        { productId: 'prod-1', quantity: 1 },
+        'key-1',
+      );
+
+      expect(cartPricingService.revalidateCoupon).not.toHaveBeenCalled();
     });
 
     it('uses Variant.price (never Product.price) when a variant is given', async () => {
@@ -448,6 +533,26 @@ describe('CartService', () => {
         'user-1',
         'item-1',
       );
+    });
+
+    it('revalidates and persists coupon state immediately after removing an item', async () => {
+      const orderWithCoupon = buildOrder({ couponId: 'coupon-1' });
+      cartRepository.findActiveCartWithItems.mockResolvedValue(orderWithCoupon);
+
+      await service.removeItem('user-1', 'item-1');
+
+      expect(cartPricingService.revalidateCoupon).toHaveBeenCalledWith(
+        orderWithCoupon,
+        fakeManager,
+      );
+    });
+
+    it('does not attempt coupon revalidation when the cart has no coupon applied', async () => {
+      cartRepository.findActiveCartWithItems.mockResolvedValue(buildOrder());
+
+      await service.removeItem('user-1', 'item-1');
+
+      expect(cartPricingService.revalidateCoupon).not.toHaveBeenCalled();
     });
   });
 });
