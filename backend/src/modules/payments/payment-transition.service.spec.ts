@@ -5,8 +5,8 @@ import { PaymentProvider } from './enums/payment-provider.enum';
 import { PaymentStatus } from './enums/payment-status.enum';
 import { OrderEntity } from '../cart/entities/order.entity';
 import { OrderStatus } from '../cart/enums/order-status.enum';
-import { OrderStatusHistoryEntity } from '../cart/entities/order-status-history.entity';
 import { CouponsService } from '../coupons/coupons.service';
+import { OrderHistoryService } from '../orders/order-history.service';
 
 function buildPayment(overrides: Partial<PaymentEntity> = {}): PaymentEntity {
   return {
@@ -66,10 +66,10 @@ function buildOrder(overrides: Partial<OrderEntity> = {}): OrderEntity {
 
 describe('PaymentTransitionService', () => {
   let couponsService: jest.Mocked<Pick<CouponsService, 'redeemForOrder'>>;
+  let orderHistoryService: jest.Mocked<Pick<OrderHistoryService, 'record'>>;
   let service: PaymentTransitionService;
   let paymentRepo: { save: jest.Mock };
   let orderRepo: { findOne: jest.Mock; save: jest.Mock };
-  let historyRepo: { insert: jest.Mock };
   let manager: EntityManager;
 
   beforeEach(() => {
@@ -78,20 +78,22 @@ describe('PaymentTransitionService', () => {
       findOne: jest.fn(),
       save: jest.fn((o) => Promise.resolve(o)),
     };
-    historyRepo = { insert: jest.fn() };
 
     manager = {
       getRepository: jest.fn((entity: unknown) => {
         if (entity === PaymentEntity) return paymentRepo;
         if (entity === OrderEntity) return orderRepo;
-        if (entity === OrderStatusHistoryEntity) return historyRepo;
         throw new Error('unexpected entity');
       }),
     } as unknown as EntityManager;
 
     couponsService = { redeemForOrder: jest.fn().mockResolvedValue(undefined) };
+    orderHistoryService = {
+      record: jest.fn().mockResolvedValue(undefined as never),
+    };
     service = new PaymentTransitionService(
       couponsService as unknown as CouponsService,
+      orderHistoryService as unknown as OrderHistoryService,
     );
   });
 
@@ -128,7 +130,8 @@ describe('PaymentTransitionService', () => {
       order.userId,
       manager,
     );
-    expect(historyRepo.insert).toHaveBeenCalledWith(
+    expect(orderHistoryService.record).toHaveBeenCalledWith(
+      manager,
       expect.objectContaining({
         orderId: order.id,
         fromStatus: OrderStatus.PENDING_PAYMENT,

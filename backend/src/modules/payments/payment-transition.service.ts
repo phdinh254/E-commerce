@@ -8,8 +8,8 @@ import {
 import { OrderEntity } from '../cart/entities/order.entity';
 import { OrderStatus } from '../cart/enums/order-status.enum';
 import { OrderActorType } from '../cart/enums/order-actor-type.enum';
-import { OrderStatusHistoryEntity } from '../cart/entities/order-status-history.entity';
 import { CouponsService } from '../coupons/coupons.service';
+import { OrderHistoryService } from '../orders/order-history.service';
 
 export type ApplyResultKind = 'applied' | 'no_op' | 'ignored_terminal';
 
@@ -41,7 +41,10 @@ export interface ApplyProviderStatusResult {
 export class PaymentTransitionService {
   private readonly logger = new Logger(PaymentTransitionService.name);
 
-  constructor(private readonly couponsService: CouponsService) {}
+  constructor(
+    private readonly couponsService: CouponsService,
+    private readonly orderHistoryService: OrderHistoryService,
+  ) {}
 
   async applyProviderStatus(
     payment: PaymentEntity,
@@ -105,7 +108,7 @@ export class PaymentTransitionService {
       manager,
     );
 
-    await manager.getRepository(OrderStatusHistoryEntity).insert({
+    await this.orderHistoryService.record(manager, {
       orderId: order.id,
       fromStatus,
       toStatus: OrderStatus.PAID,

@@ -17,6 +17,7 @@ import { PaymentProvider } from '../payments/enums/payment-provider.enum';
 import { PaymentStatus } from '../payments/enums/payment-status.enum';
 import type { PaymentGateway } from '../payments/payos-gateway.interface';
 import { CouponsService } from '../coupons/coupons.service';
+import { OrderHistoryService } from '../orders/order-history.service';
 import { AddressesService } from '../addresses/addresses.service';
 import { AddressEntity } from '../addresses/entities/address.entity';
 import { ClockService } from '../../common/clock/clock.service';
@@ -145,6 +146,7 @@ describe('CheckoutService', () => {
     >
   > & { runInTransaction: jest.Mock };
   let couponsService: jest.Mocked<Pick<CouponsService, 'redeemForOrder'>>;
+  let orderHistoryService: jest.Mocked<Pick<OrderHistoryService, 'record'>>;
   let addressesService: jest.Mocked<
     Pick<AddressesService, 'getOwnedActiveEntityOrThrow'>
   >;
@@ -194,6 +196,9 @@ describe('CheckoutService', () => {
       ),
     };
     couponsService = { redeemForOrder: jest.fn().mockResolvedValue(undefined) };
+    orderHistoryService = {
+      record: jest.fn().mockResolvedValue(undefined),
+    };
     addressesService = {
       getOwnedActiveEntityOrThrow: jest.fn().mockResolvedValue(buildAddress()),
     };
@@ -210,6 +215,7 @@ describe('CheckoutService', () => {
       idempotencyRepository as unknown as IdempotencyRepository,
       paymentsRepository as unknown as PaymentsRepository,
       couponsService as unknown as CouponsService,
+      orderHistoryService as unknown as OrderHistoryService,
       addressesService as unknown as AddressesService,
       clock,
       gateway,

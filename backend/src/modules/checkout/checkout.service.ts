@@ -14,9 +14,9 @@ import {
 import { IdempotencyRepository } from '../cart/idempotency.repository';
 import { IdempotencyKeyEntity } from '../cart/entities/idempotency-key.entity';
 import { OrderEntity } from '../cart/entities/order.entity';
-import { OrderStatusHistoryEntity } from '../cart/entities/order-status-history.entity';
 import { OrderStatus } from '../cart/enums/order-status.enum';
 import { OrderActorType } from '../cart/enums/order-actor-type.enum';
+import { OrderHistoryService } from '../orders/order-history.service';
 import { PaymentsRepository } from '../payments/payments.repository';
 import { PaymentEntity } from '../payments/entities/payment.entity';
 import { PaymentProvider } from '../payments/enums/payment-provider.enum';
@@ -48,6 +48,7 @@ export class CheckoutService {
     private readonly idempotencyRepository: IdempotencyRepository,
     private readonly paymentsRepository: PaymentsRepository,
     private readonly couponsService: CouponsService,
+    private readonly orderHistoryService: OrderHistoryService,
     private readonly addressesService: AddressesService,
     private readonly clock: ClockService,
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
@@ -108,7 +109,7 @@ export class CheckoutService {
       order.placedAt = now;
       await manager.getRepository(OrderEntity).save(order);
 
-      await manager.getRepository(OrderStatusHistoryEntity).insert({
+      await this.orderHistoryService.record(manager, {
         orderId: order.id,
         fromStatus: OrderStatus.CART,
         toStatus: OrderStatus.PAID,
@@ -221,7 +222,7 @@ export class CheckoutService {
         order.placedAt = now;
         await manager.getRepository(OrderEntity).save(order);
 
-        await manager.getRepository(OrderStatusHistoryEntity).insert({
+        await this.orderHistoryService.record(manager, {
           orderId: order.id,
           fromStatus: OrderStatus.CART,
           toStatus: OrderStatus.PENDING_PAYMENT,

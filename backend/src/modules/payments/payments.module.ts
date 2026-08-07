@@ -5,6 +5,7 @@ import { PaymentWebhookEventEntity } from './entities/payment-webhook-event.enti
 import { OrderEntity } from '../cart/entities/order.entity';
 import { OrderStatusHistoryEntity } from '../cart/entities/order-status-history.entity';
 import { CouponsModule } from '../coupons/coupons.module';
+import { OrderHistoryService } from '../orders/order-history.service';
 import { PaymentsRepository } from './payments.repository';
 import { PaymentWebhookEventsRepository } from './payment-webhook-events.repository';
 import { PaymentTransitionService } from './payment-transition.service';
@@ -38,10 +39,16 @@ import { PayOsGatewayService } from './payos-gateway.service';
   providers: [
     PaymentsRepository,
     PaymentWebhookEventsRepository,
+    OrderHistoryService,
     PaymentTransitionService,
     PaymentsService,
     { provide: PAYMENT_GATEWAY, useClass: PayOsGatewayService },
   ],
-  exports: [PaymentsRepository, PaymentTransitionService, PAYMENT_GATEWAY],
+  exports: [
+    PaymentsRepository,
+    OrderHistoryService,
+    PaymentTransitionService,
+    PAYMENT_GATEWAY,
+  ],
 })
 export class PaymentsModule {}
