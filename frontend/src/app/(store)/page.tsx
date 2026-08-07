@@ -18,7 +18,7 @@ export default async function HomePage() {
       <section className="py-5 sm:py-7">
         <Container>
           <div className="relative min-h-[560px] overflow-hidden rounded-2xl border bg-card sm:min-h-[520px] lg:min-h-[600px]">
-            <Image src="/images/hero-commerce.png" alt="Bộ sưu tập thiết bị công nghệ Cobalt Market" fill priority sizes="(max-width: 1400px) 100vw, 1400px" className="object-cover object-[62%_center] dark:brightness-[0.72]" />
+            <Image src="/images/hero-commerce.png" alt="Bộ sưu tập thiết bị công nghệ SEN" fill priority sizes="(max-width: 1400px) 100vw, 1400px" className="object-cover object-[62%_center] dark:brightness-[0.72]" />
             <div className="absolute inset-0 bg-[linear-gradient(90deg,color-mix(in_oklch,var(--card)_98%,transparent)_0%,color-mix(in_oklch,var(--card)_88%,transparent)_37%,transparent_67%)]" />
             <div className="relative z-10 flex min-h-[560px] max-w-xl flex-col justify-center px-6 py-16 sm:min-h-[520px] sm:px-10 lg:min-h-[600px] lg:px-16">
               <p className="text-sm font-semibold text-primary">Bộ sưu tập mới</p>

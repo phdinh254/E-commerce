@@ -7,7 +7,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin", "lat
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin", "latin-ext"] });
 
 export const metadata: Metadata = {
-  title: { default: "Cobalt Market", template: "%s | Cobalt Market" },
+  title: { default: "SEN", template: "%s | SEN" },
   description: "Không gian mua sắm hiện đại cho thiết bị công nghệ và phong cách sống.",
 };
 

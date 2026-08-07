@@ -22,6 +22,7 @@ import { CouponsModule } from './modules/coupons/coupons.module';
 import { CartModule } from './modules/cart/cart.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
+import { OrdersModule } from './modules/orders/orders.module';
 import { HealthModule } from './modules/health/health.module';
 import { RedisConfig } from './config/configuration';
 
@@ -69,6 +70,7 @@ import { RedisConfig } from './config/configuration';
     CartModule,
     PaymentsModule,
     CheckoutModule,
+    OrdersModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

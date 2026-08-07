@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { useAuth } from "@/lib/auth/auth-provider";
 import { useCart } from "@/lib/hooks/use-cart";
 import { cn } from "@/lib/utils";
+import { SenLogo } from "@/components/layout/sen-logo";
 
 const navigation = [
   { href: "/products", label: "Sản phẩm" },
@@ -21,9 +22,9 @@ const navigation = [
 
 function BrandMark() {
   return (
-    <Link href="/" className="flex shrink-0 items-center gap-2 rounded-lg" aria-label="Cobalt Market, về trang chủ">
-      <span className="grid size-9 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-soft" aria-hidden="true">C</span>
-      <span className="hidden text-base font-semibold tracking-[-0.02em] sm:block">Cobalt Market</span>
+    <Link href="/" className="flex shrink-0 items-center gap-2 rounded-lg" aria-label="SEN, về trang chủ">
+      <SenLogo size={36} />
+      <span className="hidden text-base font-semibold tracking-[-0.02em] sm:block">SEN</span>
     </Link>
   );
 }

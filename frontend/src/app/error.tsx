@@ -19,7 +19,7 @@ export default function ErrorBoundary({
       <StatePanel
         kind="error"
         title="Có lỗi xảy ra"
-        description="Cobalt chưa thể tải nội dung này. Hãy kiểm tra kết nối rồi thử lại."
+        description="SEN chưa thể tải nội dung này. Hãy kiểm tra kết nối rồi thử lại."
         actionLabel="Thử lại"
         onRetry={unstable_retry}
       />

@@ -29,7 +29,7 @@ export function SiteFooter() {
       <Container className="py-12">
         <div className="grid gap-10 lg:grid-cols-[1.3fr_2fr]">
           <div>
-            <p className="text-xl font-semibold tracking-[-0.03em]">Cobalt Market</p>
+            <p className="text-xl font-semibold tracking-[-0.03em]">SEN</p>
             <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">Chọn lọc thiết bị công nghệ và đồ dùng hiện đại, chú trọng trải nghiệm sử dụng lâu dài.</p>
             <div className="mt-6"><p className="mb-2 text-sm font-medium">Nhận tin sản phẩm mới</p><NewsletterForm /></div>
           </div>
@@ -39,7 +39,7 @@ export function SiteFooter() {
             <div><p className="text-sm font-semibold">Thông tin</p><div className="mt-4 grid gap-3 text-sm text-muted-foreground"><Link href="/products">Chính sách đổi trả</Link><Link href="/products">Chính sách bảo mật</Link><Link href="/admin">Quản trị</Link></div></div>
           </div>
         </div>
-        <div className="mt-12 flex flex-col gap-2 border-t pt-6 text-xs text-muted-foreground sm:flex-row sm:justify-between"><p>© 2026 Cobalt Market. Bản quyền được bảo lưu.</p><p>Giá hiển thị đã bao gồm thuế theo quy định.</p></div>
+        <div className="mt-12 flex flex-col gap-2 border-t pt-6 text-xs text-muted-foreground sm:flex-row sm:justify-between"><p>© 2026 SEN. Bản quyền được bảo lưu.</p><p>Giá hiển thị đã bao gồm thuế theo quy định.</p></div>
       </Container>
     </footer>
   );
