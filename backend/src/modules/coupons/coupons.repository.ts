@@ -67,4 +67,20 @@ export class CouponsRepository {
       .getRepository(CouponEntity)
       .increment({ id: couponId }, 'usedCount', 1);
   }
+
+  /**
+   * Inverse of `incrementUsedCount`, for the cancellation/rollback path. The
+   * caller (CouponsService.rollbackRedemption) only invokes this after it has
+   * confirmed a redemption row actually existed and was deleted in the same
+   * transaction, so this never drives usedCount below the redemptions that
+   * remain (guarded further by CHK_coupons_used_count_non_negative).
+   */
+  async decrementUsedCount(
+    couponId: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    await manager
+      .getRepository(CouponEntity)
+      .decrement({ id: couponId }, 'usedCount', 1);
+  }
 }

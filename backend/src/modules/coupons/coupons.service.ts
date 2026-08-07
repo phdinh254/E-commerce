@@ -99,4 +99,50 @@ export class CouponsService {
       await this.couponsRepository.incrementUsedCount(order.couponId, manager);
     }
   }
+
+  /**
+   * Exact inverse of `redeemForOrder`, for the order-cancellation path (Ch19
+   * customer cancellation). Runs inside the caller's transaction so the
+   * usedCount decrement and the redemption-row delete commit or roll back
+   * together with the order's status change.
+   *
+   * Idempotent and self-guarding: the redemption row (unique per order via
+   * UQ_coupon_redemptions_order_id) IS the authority for whether a decrement
+   * is owed. If no row exists — the order never had a coupon, or a previous
+   * cancellation already rolled it back — this is a no-op and never decrements.
+   * usedCount only moves when a row is actually deleted here, so a retried
+   * cancellation can never double-decrement.
+   *
+   * Mirrors `redeemForOrder`'s locking discipline: it takes the same
+   * pessimistic write lock on the coupon row before touching usedCount, so all
+   * usedCount mutations for a coupon (increments from redemptions, decrements
+   * from rollbacks) serialize on that single row rather than interleaving.
+   *
+   * Takes only `orderId` (never an OrderEntity) to preserve the one-directional
+   * dependency: Coupons must not import from Cart/Orders — the Orders side
+   * calls into Coupons, never the reverse.
+   */
+  async rollbackRedemption(
+    orderId: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    const redemption = await this.redemptionsRepository.findByOrderId(
+      orderId,
+      manager,
+    );
+    if (!redemption) return; // nothing to roll back — idempotent no-op
+
+    await this.couponsRepository.lockForUpdate(redemption.couponId, manager);
+
+    const deleted = await this.redemptionsRepository.deleteByOrderId(
+      orderId,
+      manager,
+    );
+    if (deleted > 0) {
+      await this.couponsRepository.decrementUsedCount(
+        redemption.couponId,
+        manager,
+      );
+    }
+  }
 }

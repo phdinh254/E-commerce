@@ -47,4 +47,34 @@ export class CouponRedemptionsRepository {
     });
     return { kind: 'already-redeemed', redemption: existing };
   }
+
+  /**
+   * Read the (at most one — UQ_coupon_redemptions_order_id) redemption row for
+   * an order. The rollback path checks this BEFORE decrementing usedCount so a
+   * retried cancellation of an already-rolled-back order (no row) is a safe
+   * no-op instead of a double-decrement.
+   */
+  findByOrderId(
+    orderId: string,
+    manager: EntityManager,
+  ): Promise<CouponRedemptionEntity | null> {
+    return manager
+      .getRepository(CouponRedemptionEntity)
+      .findOne({ where: { orderId } });
+  }
+
+  /**
+   * Delete the redemption row for an order. Returns the number of rows removed
+   * so the caller decrements usedCount only for a redemption it actually
+   * deleted, never on assumption.
+   */
+  async deleteByOrderId(
+    orderId: string,
+    manager: EntityManager,
+  ): Promise<number> {
+    const result = await manager
+      .getRepository(CouponRedemptionEntity)
+      .delete({ orderId });
+    return result.affected ?? 0;
+  }
 }
