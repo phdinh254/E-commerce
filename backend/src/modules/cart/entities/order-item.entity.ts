@@ -83,6 +83,42 @@ export class OrderItemEntity {
   @Column({ name: 'unit_price_amount', type: 'integer' })
   unitPriceAmount: number;
 
+  /**
+   * Chapter 19 (Order Management) — product/sku/image snapshots captured at
+   * checkout time so an order line still displays correctly (and audits
+   * correctly) even after the underlying product/variant is later renamed,
+   * re-priced, or deleted. Distinct from `unitPriceAmount`, which already
+   * served this purpose for price.
+   *
+   * Nullable: the cart-is-order pattern means this row exists (as a CART or
+   * PENDING_PAYMENT order line) before checkout ever runs. `null` here means
+   * "not yet placed" — Task 2 populates these at order finalization in
+   * checkout.service.ts, before the order leaves CART/PENDING_PAYMENT.
+   */
+  @Column({
+    name: 'product_name_snapshot',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  productNameSnapshot: string | null;
+
+  @Column({
+    name: 'sku_snapshot',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  skuSnapshot: string | null;
+
+  @Column({
+    name: 'image_url_snapshot',
+    type: 'varchar',
+    length: 1024,
+    nullable: true,
+  })
+  imageUrlSnapshot: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

@@ -7,6 +7,7 @@ import {
 } from './enums/payment-status.enum';
 import { OrderEntity } from '../cart/entities/order.entity';
 import { OrderStatus } from '../cart/enums/order-status.enum';
+import { OrderActorType } from '../cart/enums/order-actor-type.enum';
 import { OrderStatusHistoryEntity } from '../cart/entities/order-status-history.entity';
 import { CouponsService } from '../coupons/coupons.service';
 
@@ -109,6 +110,8 @@ export class PaymentTransitionService {
       fromStatus,
       toStatus: OrderStatus.PAID,
       reason: `payment:${payment.provider}`,
+      actorType: OrderActorType.SYSTEM,
+      actorId: null,
     });
   }
 }

@@ -16,6 +16,7 @@ import { IdempotencyKeyEntity } from '../cart/entities/idempotency-key.entity';
 import { OrderEntity } from '../cart/entities/order.entity';
 import { OrderStatusHistoryEntity } from '../cart/entities/order-status-history.entity';
 import { OrderStatus } from '../cart/enums/order-status.enum';
+import { OrderActorType } from '../cart/enums/order-actor-type.enum';
 import { PaymentsRepository } from '../payments/payments.repository';
 import { PaymentEntity } from '../payments/entities/payment.entity';
 import { PaymentProvider } from '../payments/enums/payment-provider.enum';
@@ -112,6 +113,8 @@ export class CheckoutService {
         fromStatus: OrderStatus.CART,
         toStatus: OrderStatus.PAID,
         reason: 'checkout:cod',
+        actorType: OrderActorType.SYSTEM,
+        actorId: null,
       });
 
       await this.couponsService.redeemForOrder(
@@ -223,6 +226,8 @@ export class CheckoutService {
           fromStatus: OrderStatus.CART,
           toStatus: OrderStatus.PENDING_PAYMENT,
           reason: 'checkout:payos',
+          actorType: OrderActorType.SYSTEM,
+          actorId: null,
         });
 
         const orderCode = await this.paymentsRepository.nextOrderCode(manager);

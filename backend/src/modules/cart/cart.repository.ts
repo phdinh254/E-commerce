@@ -5,6 +5,7 @@ import { OrderEntity } from './entities/order.entity';
 import { OrderItemEntity } from './entities/order-item.entity';
 import { OrderStatusHistoryEntity } from './entities/order-status-history.entity';
 import { OrderStatus } from './enums/order-status.enum';
+import { OrderActorType } from './enums/order-actor-type.enum';
 
 export type AddItemOutcome =
   | { kind: 'incremented'; item: OrderItemEntity }
@@ -71,6 +72,8 @@ export class CartRepository {
           orderId: created.id,
           fromStatus: null,
           toStatus: OrderStatus.CART,
+          actorType: OrderActorType.SYSTEM,
+          actorId: null,
         }),
       );
       created.items = [];
